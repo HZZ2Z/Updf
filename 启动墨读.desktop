@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=启动墨读
+Comment=启动本地优先 PDF 深度阅读器
+TryExec=/usr/bin/gnome-terminal
+Exec=/usr/bin/gnome-terminal --title="墨读 PDF 阅读器" -- /usr/bin/env bash -c "cd \"\\$(dirname \"\\$0\")\" && exec ./启动墨读.sh" %k
+Icon=accessories-dictionary
+Terminal=false
+Categories=Education;
+StartupNotify=true

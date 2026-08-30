@@ -1,0 +1,45 @@
+{
+  "name": "modu-pdf-reader",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "pdfjs:assets": "node scripts/sync-pdfjs-assets.mjs",
+    "predev": "npm run pdfjs:assets",
+    "dev": "next dev -H 127.0.0.1",
+    "launch": "node scripts/start-modu.mjs",
+    "prebuild": "npm run pdfjs:assets",
+    "build": "next build",
+    "prestart": "npm run pdfjs:assets",
+    "start": "next start -H 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "dexie": "latest",
+    "lucide-react": "latest",
+    "next": "latest",
+    "page-flip": "latest",
+    "pdfjs-dist": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@playwright/test": "latest",
+    "@testing-library/jest-dom": "latest",
+    "@testing-library/react": "latest",
+    "@testing-library/user-event": "latest",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "^6.1.0",
+    "fake-indexeddb": "latest",
+    "jsdom": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}
