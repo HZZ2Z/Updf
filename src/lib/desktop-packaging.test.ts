@@ -61,6 +61,7 @@ describe("Linux desktop packaging", () => {
       version: "1.0.0",
       main: "desktop/main.mjs",
       desktopName: "com.hzz2z.modureader",
+      homepage: "https://github.com/HZZ2Z/Updf",
     });
     expect(packageJson.scripts).toHaveProperty("desktop:run");
     expect(packageJson.scripts).toHaveProperty("build:linux");

@@ -7,6 +7,7 @@
   "desktopName": "com.hzz2z.modureader",
   "description": "本地优先 PDF 深度阅读器",
   "author": "HZZ2Z <HZZ2Z@users.noreply.github.com>",
+  "homepage": "https://github.com/HZZ2Z/Updf",
   "scripts": {
     "pdfjs:assets": "node scripts/sync-pdfjs-assets.mjs",
     "predev": "npm run pdfjs:assets",
@@ -17,6 +18,7 @@
     "prepare:desktop": "node scripts/prepare-desktop-runtime.mjs",
     "desktop:run": "npm run build && npm run prepare:desktop && electron .",
     "build:linux": "npm run build && npm run prepare:desktop && electron-builder --config electron-builder.yml --linux AppImage deb --x64",
+    "verify:linux": "node scripts/verify-linux-package.mjs",
     "prestart": "npm run pdfjs:assets",
     "start": "next start -H 127.0.0.1",
     "typecheck": "tsc --noEmit",

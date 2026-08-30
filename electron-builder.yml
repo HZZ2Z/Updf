@@ -11,6 +11,13 @@ files:
 extraResources:
   - from: .desktop-runtime/server
     to: app-server
+    filter:
+      - "**/*"
+      - "!node_modules/**/*"
+  - from: .desktop-runtime/server/node_modules
+    to: app-server/node_modules
+    filter:
+      - "**/*"
   - from: build/icon.svg
     to: assets/icon.svg
 linux:
@@ -22,7 +29,7 @@ linux:
     - "%F"
   syncDesktopName: true
   icon: build/icon.svg
-  category: Office;Education
+  category: Office;Viewer
   maintainer: HZZ2Z <HZZ2Z@users.noreply.github.com>
   mimeTypes:
     - application/pdf

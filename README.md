@@ -38,6 +38,25 @@ npm run build
 npm run start
 ```
 
+## Linux 桌面应用 1.0.0
+
+需要 Linux x86_64、Node.js 20.9 或更高版本以及可用的网络来下载 Electron 打包工具。在项目根目录执行：
+
+```bash
+npm install
+npm run build:linux
+npm run verify:linux
+```
+
+构建会在 `dist/` 生成两个 1.0.0 产物：
+
+- `墨读-1.0.0-x86_64.AppImage`：先执行 `chmod +x "dist/墨读-1.0.0-x86_64.AppImage"`，再双击或从终端运行。
+- `墨读-1.0.0-x86_64.deb`：Debian/Ubuntu 可执行 `sudo apt install ./dist/墨读-1.0.0-x86_64.deb`。
+
+安装后可直接将 PDF 拖到或用系统“打开方式”选择墨读。若希望双击 PDF 始终使用墨读，打开“设置 → PDF 默认应用”并主动点击“设为 PDF 默认应用”。安装和首次启动不会自动更改系统默认应用。如果设置页提示无法调用 `xdg-mime`，请先安装当前发行版的 `xdg-utils` 包。
+
+桌面应用与 Chrome/Edge 使用不同的 Chromium 资料目录，因此浏览器版已有的 IndexedDB 资料不会自动出现在桌面版。可先从浏览器版导出 `.updf-notes.json`，再在桌面版导入阅读记录。
+
 ## 翻译设置
 
 在“设置”页选择默认翻译服务，并输入对应的 DeepSeek 或 Google Cloud Translation API Key。两种密钥分开写入 `sessionStorage`，关闭标签页/浏览器会话后失效，不会进入 IndexedDB 或导出包；应用自身不会主动持久化或记录密钥。应用仅在用户选中文字并明确点击“翻译”时，通过同源 `/api/translate` 发送该选区。
@@ -73,6 +92,8 @@ npm run build
 - 仅修复 Bug、性能或稳定性问题：增加 `Z`。
 
 `package.json` 是版本号的唯一真值来源，`package-lock.json` 保持同步。每次正式发布同时更新 `CHANGELOG.md`，并创建 `vX.Y.Z` 格式的 Git 标签。
+
+Linux 桌面首版不重写已有的 `v1.0.0`；审核本地产物后使用 `linux-v1.0.0` 作为桌面发布标签。
 
 ## 首版边界
 
