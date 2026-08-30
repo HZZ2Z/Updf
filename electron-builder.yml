@@ -1,0 +1,29 @@
+appId: com.hzz2z.modureader
+productName: 墨读
+asar: true
+directories:
+  output: dist
+  buildResources: build
+files:
+  - desktop/**/*
+  - package.json
+  - "!node_modules/**/*"
+extraResources:
+  - from: .desktop-runtime/server
+    to: app-server
+  - from: build/icon.svg
+    to: assets/icon.svg
+linux:
+  target:
+    - AppImage
+    - deb
+  executableName: modu-reader
+  executableArgs:
+    - "%F"
+  syncDesktopName: true
+  icon: build/icon.svg
+  category: Office;Education
+  maintainer: HZZ2Z <HZZ2Z@users.noreply.github.com>
+  mimeTypes:
+    - application/pdf
+artifactName: "墨读-${version}-x86_64.${ext}"

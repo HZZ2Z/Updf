@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#102a43"/>
+  <path d="M118 84h276a34 34 0 0 1 34 34v276a34 34 0 0 1-34 34H118a34 34 0 0 1-34-34V118a34 34 0 0 1 34-34Z" fill="#fff"/>
+  <path d="M350 84h44a34 34 0 0 1 34 34v116l-39-25-39 25V84Z" fill="#2f6fed"/>
+  <text x="256" y="326" text-anchor="middle" font-size="190" font-weight="700" font-family="Noto Sans CJK SC, Source Han Sans SC, sans-serif" fill="#102a43">墨</text>
+</svg>
