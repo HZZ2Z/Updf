@@ -50,6 +50,25 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.desktop-open-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  z-index: 200;
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 10px 16px;
+  overflow: hidden;
+  color: var(--surface);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  background: var(--navy-950);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-paper);
+  transform: translateX(-50%);
+}
+
 button,
 input,
 select,
