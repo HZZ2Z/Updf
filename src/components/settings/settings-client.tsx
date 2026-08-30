@@ -15,6 +15,7 @@ import {
 } from "@/lib/portable-data";
 import { readTranslationUsage, type TranslationUsageSummary } from "@/lib/translation-usage";
 import type { TranslationProvider } from "@/lib/types";
+import type { DesktopIntegrationStatus } from "@/types/desktop";
 
 export function SettingsClient() {
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -25,6 +26,8 @@ export function SettingsClient() {
   const [documentCount, setDocumentCount] = useState(0);
   const [recordCount, setRecordCount] = useState(0);
   const [message, setMessage] = useState("");
+  const [desktopIntegration, setDesktopIntegration] = useState<DesktopIntegrationStatus>();
+  const [desktopIntegrationBusy, setDesktopIntegrationBusy] = useState(false);
 
   const refreshCounts = useCallback(async () => {
     const database = getReaderDatabase();
@@ -47,6 +50,46 @@ export function SettingsClient() {
     setTranslationUsage(readTranslationUsage());
     void refreshCounts();
   }, [refreshCounts]);
+
+  useEffect(() => {
+    const bridge = window.moduDesktop;
+    if (!bridge) return;
+    let active = true;
+    void bridge.getPdfDefaultAppStatus()
+      .then((status) => {
+        if (active) setDesktopIntegration(status);
+      })
+      .catch((error) => {
+        if (!active) return;
+        setDesktopIntegration({
+          available: false,
+          isDefault: false,
+          error: error instanceof Error ? error.message : "无法查询 PDF 默认应用",
+        });
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const setPdfDefaultApp = useCallback(async () => {
+    const bridge = window.moduDesktop;
+    if (!bridge) return;
+    setDesktopIntegrationBusy(true);
+    try {
+      const status = await bridge.setAsPdfDefaultApp();
+      setDesktopIntegration(status);
+      setMessage(status.isDefault
+        ? "墨读已设为 PDF 默认应用。"
+        : status.error ?? "PDF 默认应用设置未生效。");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "无法设置 PDF 默认应用";
+      setDesktopIntegration({ available: false, isDefault: false, error: reason });
+      setMessage(reason);
+    } finally {
+      setDesktopIntegrationBusy(false);
+    }
+  }, []);
 
   const exportAll = useCallback(async () => {
     const database = getReaderDatabase();
@@ -95,6 +138,8 @@ export function SettingsClient() {
       documentCount={documentCount}
       recordCount={recordCount}
       message={message}
+      desktopIntegration={desktopIntegration}
+      desktopIntegrationBusy={desktopIntegrationBusy}
       onSaveApiKey={(key) => {
         window.sessionStorage.setItem("modu-deepseek-key", key);
         setHasApiKey(true);
@@ -129,6 +174,7 @@ export function SettingsClient() {
       }}
       onExportAll={() => void exportAll()}
       onImportArchive={(file) => void importArchive(file)}
+      onSetPdfDefaultApp={() => void setPdfDefaultApp()}
       onClearLibrary={() => {
         if (!window.confirm("清空本地资料库？PDF、翻译、注释和词汇都将从这台设备删除，请先导出备份。")) return;
         void clearReaderDatabase(getReaderDatabase()).then(async () => {

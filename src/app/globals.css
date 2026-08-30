@@ -1552,6 +1552,28 @@ textarea:focus-visible,
   margin-top: 22px;
 }
 
+.desktop-integration-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 22px;
+  padding: 18px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.desktop-integration-row > span {
+  color: var(--navy-800);
+  font-weight: 650;
+}
+
+.settings-inline-error {
+  margin: 12px 0 0;
+  color: var(--danger);
+}
+
 .data-actions svg {
   width: 16px;
 }
@@ -1660,8 +1682,10 @@ textarea:focus-visible,
   }
 
   .api-key-form > div,
-  .data-actions {
+  .data-actions,
+  .desktop-integration-row {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .settings-select {

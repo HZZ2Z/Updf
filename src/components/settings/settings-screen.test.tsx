@@ -180,4 +180,63 @@ describe("SettingsScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "清空本地资料库" }));
     expect(onClearLibrary).toHaveBeenCalledOnce();
   });
+
+  it("shows desktop integration and changes the default only from an explicit click", async () => {
+    const onSetPdfDefaultApp = vi.fn();
+    render(
+      <SettingsScreen
+        hasApiKey={false}
+        hasGoogleApiKey={false}
+        translationProvider="deepseek"
+        targetLanguage="zh-CN"
+        documentCount={0}
+        recordCount={0}
+        desktopIntegration={{
+          available: true,
+          isDefault: false,
+          defaultApplication: "org.gnome.Evince.desktop",
+        }}
+        desktopIntegrationBusy={false}
+        onSaveApiKey={vi.fn()}
+        onClearApiKey={vi.fn()}
+        onSaveGoogleApiKey={vi.fn()}
+        onClearGoogleApiKey={vi.fn()}
+        onTranslationProviderChange={vi.fn()}
+        onTargetLanguageChange={vi.fn()}
+        onExportAll={vi.fn()}
+        onImportArchive={vi.fn()}
+        onClearLibrary={vi.fn()}
+        onSetPdfDefaultApp={onSetPdfDefaultApp}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "PDF 默认应用" })).toBeInTheDocument();
+    expect(onSetPdfDefaultApp).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "设为 PDF 默认应用" }));
+    expect(onSetPdfDefaultApp).toHaveBeenCalledOnce();
+  });
+
+  it("hides desktop integration in a normal browser", () => {
+    render(
+      <SettingsScreen
+        hasApiKey={false}
+        hasGoogleApiKey={false}
+        translationProvider="deepseek"
+        targetLanguage="zh-CN"
+        documentCount={0}
+        recordCount={0}
+        onSaveApiKey={vi.fn()}
+        onClearApiKey={vi.fn()}
+        onSaveGoogleApiKey={vi.fn()}
+        onClearGoogleApiKey={vi.fn()}
+        onTranslationProviderChange={vi.fn()}
+        onTargetLanguageChange={vi.fn()}
+        onExportAll={vi.fn()}
+        onImportArchive={vi.fn()}
+        onClearLibrary={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("heading", { name: "PDF 默认应用" })).not.toBeInTheDocument();
+  });
 });

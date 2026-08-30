@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Database,
   Download,
+  FileCheck2,
   KeyRound,
   Languages,
   ShieldCheck,
@@ -14,6 +15,7 @@ import { useRef, useState, type FormEvent } from "react";
 
 import type { TranslationProvider } from "@/lib/types";
 import type { TranslationUsageSummary } from "@/lib/translation-usage";
+import type { DesktopIntegrationStatus } from "@/types/desktop";
 
 interface SettingsScreenProps {
   hasApiKey: boolean;
@@ -24,6 +26,8 @@ interface SettingsScreenProps {
   documentCount: number;
   recordCount: number;
   message?: string;
+  desktopIntegration?: DesktopIntegrationStatus;
+  desktopIntegrationBusy?: boolean;
   onSaveApiKey: (key: string) => void;
   onClearApiKey: () => void;
   onSaveGoogleApiKey: (key: string) => void;
@@ -33,6 +37,7 @@ interface SettingsScreenProps {
   onExportAll: () => void;
   onImportArchive: (file: File) => void;
   onClearLibrary: () => void;
+  onSetPdfDefaultApp?: () => void;
 }
 
 export function SettingsScreen({
@@ -44,6 +49,8 @@ export function SettingsScreen({
   documentCount,
   recordCount,
   message,
+  desktopIntegration,
+  desktopIntegrationBusy = false,
   onSaveApiKey,
   onClearApiKey,
   onSaveGoogleApiKey,
@@ -53,6 +60,7 @@ export function SettingsScreen({
   onExportAll,
   onImportArchive,
   onClearLibrary,
+  onSetPdfDefaultApp,
 }: SettingsScreenProps) {
   const [apiKey, setApiKey] = useState("");
   const [googleApiKey, setGoogleApiKey] = useState("");
@@ -108,6 +116,38 @@ export function SettingsScreen({
             </div>
           ) : null}
         </section>
+
+        {desktopIntegration ? (
+          <section className="settings-section">
+            <div className="settings-section-heading">
+              <FileCheck2 />
+              <div>
+                <h2>PDF 默认应用</h2>
+                <p>从文件管理器双击 PDF 时直接使用墨读打开。</p>
+              </div>
+            </div>
+            <div className="desktop-integration-row">
+              <span>{desktopIntegration.isDefault ? "墨读已是 PDF 默认应用" : "当前尚未设为默认"}</span>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={
+                  !desktopIntegration.available
+                  || desktopIntegrationBusy
+                  || desktopIntegration.isDefault
+                }
+                onClick={onSetPdfDefaultApp}
+              >
+                {desktopIntegrationBusy
+                  ? "正在设置…"
+                  : desktopIntegration.isDefault ? "已设为默认" : "设为 PDF 默认应用"}
+              </button>
+            </div>
+            {desktopIntegration.error ? (
+              <p className="settings-inline-error">{desktopIntegration.error}</p>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="settings-section">
           <div className="settings-section-heading"><KeyRound /><div><h2>翻译 API 密钥</h2><p>两种密钥分别保存在当前标签页会话中，关闭浏览器后自动清除。</p></div></div>
