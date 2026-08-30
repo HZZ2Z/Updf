@@ -24,9 +24,10 @@ interface InspectedPdfMetadata {
 export async function createDocumentRecord(
   file: File,
   metadata: InspectedPdfMetadata,
+  verifiedFingerprint?: string,
 ): Promise<DocumentRecord> {
   await validatePdfFile(file);
-  const fingerprint = await fingerprintFile(file);
+  const fingerprint = verifiedFingerprint ?? await fingerprintFile(file);
   const now = new Date().toISOString();
 
   return {

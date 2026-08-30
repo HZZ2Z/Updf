@@ -48,4 +48,17 @@ describe("PDF import", () => {
       progress: 0,
     });
   });
+
+  it("reuses a caller-supplied verified fingerprint", async () => {
+    const file = pdfFile();
+
+    const record = await createDocumentRecord(
+      file,
+      { pageCount: 1, persisted: true },
+      "verified-sha",
+    );
+
+    expect(record.id).toBe("verified-sha");
+    expect(record.fingerprint).toBe("verified-sha");
+  });
 });

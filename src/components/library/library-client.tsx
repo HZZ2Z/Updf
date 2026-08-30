@@ -17,15 +17,13 @@ import {
   moveDocumentToFolder,
   renameLibraryFolder,
 } from "@/lib/database";
-import { createDocumentRecord, fingerprintFile, validatePdfFile } from "@/lib/pdf-import";
 import {
-  inspectPdfFile,
   forgetEphemeralDocument,
   getEphemeralDocument,
   listEphemeralDocuments,
-  rememberEphemeralDocument,
   updateEphemeralDocument,
 } from "@/lib/pdf-engine";
+import { importPdfIntoLibrary } from "@/lib/pdf-library-import";
 import { createExportBundle, parsePortableArchive } from "@/lib/portable-data";
 import type { DocumentRecord, TranslationPayload } from "@/lib/types";
 
@@ -120,53 +118,33 @@ export function LibraryClient() {
   const handlePdfImport = useCallback(async (files: File[]) => {
     setImporting(true);
     setMessage("");
-    const database = getReaderDatabase();
     let imported = 0;
+    let importMessage = "";
 
     try {
       for (const file of files) {
-        await validatePdfFile(file);
-        const fingerprint = await fingerprintFile(file);
-        const existing = await database.documents.get(fingerprint);
-        if (existing) {
-          await database.documents.update(existing.id, {
-            lastOpenedAt: new Date().toISOString(),
-          });
-          setMessage(`“${existing.title}”已在资料库中，已保留原有阅读记录。`);
-          continue;
-        }
-
-        const inspection = await inspectPdfFile(file);
-        const documentRecord = await createDocumentRecord(file, {
-          ...inspection,
-          persisted: true,
+        const result = await importPdfIntoLibrary(file, {
+          requestPersistence: async () => {
+            if (!navigator.storage?.persist) return false;
+            return navigator.storage.persist();
+          },
         });
-
-        try {
-          if (navigator.storage?.persist) await navigator.storage.persist();
-          await database.documents.put(documentRecord);
-        } catch (error) {
-          if (error instanceof DOMException && error.name === "QuotaExceededError") {
-            documentRecord.persisted = false;
-            rememberEphemeralDocument(documentRecord);
-            setMessage("本地空间不足，文件仅在当前会话中可用；笔记仍会尝试保存。");
-          } else {
-            throw error;
-          }
+        if (result.outcome === "existing") {
+          importMessage = `“${result.title}”已在资料库中，已保留原有阅读记录。`;
+        } else if (result.storage === "session") {
+          importMessage = "本地空间不足，文件仅在当前会话中可用；笔记仍会尝试保存。";
+        } else {
+          imported += 1;
         }
-
-        const waitingBundle = await database.pendingBundles.get(fingerprint);
-        if (waitingBundle) await applyBundleToDatabase(database, waitingBundle.bundle);
-        imported += 1;
       }
-      if (imported > 0 && !message) setMessage(`已导入 ${imported} 份 PDF。`);
+      setMessage(importMessage || (imported > 0 ? `已导入 ${imported} 份 PDF。` : ""));
       await refresh();
     } catch (error) {
       setMessage(errorMessage(error));
     } finally {
       setImporting(false);
     }
-  }, [message, refresh]);
+  }, [refresh]);
 
   const handleBundleImport = useCallback(async (file: File) => {
     try {
