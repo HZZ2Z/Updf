@@ -22,8 +22,8 @@ describe("Linux package verifier", () => {
 
   it("requires both 1.0.0 x86_64 deliverables", () => {
     expect(expectedLinuxArtifacts("1.0.0")).toEqual([
-      "墨读-1.0.0-x86_64.AppImage",
-      "墨读-1.0.0-x86_64.deb",
+      "Modu-1.0.0-x86_64.AppImage",
+      "Modu-1.0.0-x86_64.deb",
     ]);
   });
 

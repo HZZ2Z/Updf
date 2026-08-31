@@ -101,7 +101,6 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
   const [pageSizes, setPageSizes] = useState<PdfPageSizeMap>({});
   const pageSizesRef = useRef<PdfPageSizeMap>({});
-  const [outline, setOutline] = useState<string[]>([]);
   const [mode, setMode] = useState<ReaderMode>("continuous");
   const [modePages, setModePages] = useState<Record<ReaderMode, number>>({ continuous: 1, book: 1 });
   const page = modePages[mode];
@@ -219,8 +218,6 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
       const loadedPdf = await loadingTask.promise;
       if (cancelled) return;
       setPdf(loadedPdf);
-      const loadedOutline = await loadedPdf.getOutline().catch(() => null);
-      if (loadedOutline) setOutline(loadedOutline.map((item) => item.title));
     })().catch((caught: unknown) => {
       setError(caught instanceof Error ? caught.message : "PDF 加载失败");
     });
@@ -714,10 +711,8 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
       <div className={`reader-workspace ${leftPanelOpen ? "" : "is-left-panel-closed"} ${inspectorOpen ? "" : "is-inspector-closed"}`}>
         {leftPanelOpen ? (
           <ReaderLeftPanel
-            title={documentRecord.title}
             pageCount={documentRecord.pageCount}
             currentPage={page}
-            outline={outline}
             onPageChange={navigateToPage}
           />
         ) : null}

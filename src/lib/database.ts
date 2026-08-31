@@ -99,6 +99,7 @@ export async function createLibraryFolder(
     normalizedName,
     createdAt: now,
     updatedAt: now,
+    sortOrder: Date.now(),
   };
   try {
     await database.folders.add(folder);
@@ -109,6 +110,26 @@ export async function createLibraryFolder(
     throw error;
   }
   return folder;
+}
+
+export async function reorderLibraryDocuments(
+  database: ReaderDatabase,
+  orderedIds: string[],
+): Promise<void> {
+  await database.transaction("rw", database.documents, async () => {
+    await Promise.all(orderedIds.map((id, index) =>
+      database.documents.update(id, { sortOrder: (index + 1) * 1_000 })));
+  });
+}
+
+export async function reorderLibraryFolders(
+  database: ReaderDatabase,
+  orderedIds: string[],
+): Promise<void> {
+  await database.transaction("rw", database.folders, async () => {
+    await Promise.all(orderedIds.map((id, index) =>
+      database.folders.update(id, { sortOrder: (index + 1) * 1_000 })));
+  });
 }
 
 export async function renameLibraryFolder(

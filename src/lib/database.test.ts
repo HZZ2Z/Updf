@@ -8,6 +8,8 @@ import {
   deleteLibraryFolder,
   moveDocumentToFolder,
   ReaderDatabase,
+  reorderLibraryDocuments,
+  reorderLibraryFolders,
   renameLibraryFolder,
 } from "@/lib/database";
 import { createExportBundle } from "@/lib/portable-data";
@@ -125,6 +127,24 @@ describe("reader database", () => {
     expect(migrated?.folderId).toBeUndefined();
     expect(Array.from(migrated?.file as unknown as Uint8Array)).toEqual([37, 80, 68, 70]);
     await expect(database.folders.count()).resolves.toBe(0);
+  });
+
+  it("persists explicit document and folder positions", async () => {
+    const database = createDatabase();
+    await database.documents.bulkPut([
+      { ...documentRecord, id: "one", fingerprint: "one" },
+      { ...documentRecord, id: "two", fingerprint: "two" },
+      { ...documentRecord, id: "three", fingerprint: "three" },
+    ]);
+    const firstFolder = await createLibraryFolder(database, "First");
+    const secondFolder = await createLibraryFolder(database, "Second");
+
+    await reorderLibraryDocuments(database, ["three", "one", "two"]);
+    await reorderLibraryFolders(database, [secondFolder.id, firstFolder.id]);
+
+    await expect(database.documents.get("three")).resolves.toMatchObject({ sortOrder: 1_000 });
+    await expect(database.documents.get("one")).resolves.toMatchObject({ sortOrder: 2_000 });
+    await expect(database.folders.get(secondFolder.id)).resolves.toMatchObject({ sortOrder: 1_000 });
   });
 
   it("normalizes folder names and rejects invalid or duplicate variants", async () => {

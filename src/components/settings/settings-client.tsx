@@ -15,7 +15,7 @@ import {
 } from "@/lib/portable-data";
 import { readTranslationUsage, type TranslationUsageSummary } from "@/lib/translation-usage";
 import type { TranslationProvider } from "@/lib/types";
-import type { DesktopIntegrationStatus } from "@/types/desktop";
+import type { DesktopIntegrationStatus, DesktopUpdateState } from "@/types/desktop";
 
 export function SettingsClient() {
   const [hasApiKey, setHasApiKey] = useState(false);
@@ -28,6 +28,7 @@ export function SettingsClient() {
   const [message, setMessage] = useState("");
   const [desktopIntegration, setDesktopIntegration] = useState<DesktopIntegrationStatus>();
   const [desktopIntegrationBusy, setDesktopIntegrationBusy] = useState(false);
+  const [desktopUpdate, setDesktopUpdate] = useState<DesktopUpdateState>();
 
   const refreshCounts = useCallback(async () => {
     const database = getReaderDatabase();
@@ -55,6 +56,14 @@ export function SettingsClient() {
     const bridge = window.moduDesktop;
     if (!bridge) return;
     let active = true;
+    const stopUpdateListener = bridge.onUpdateState?.((state) => {
+      if (active) setDesktopUpdate(state);
+    });
+    void bridge.getUpdateState?.()
+      .then((state) => {
+        if (active) setDesktopUpdate(state);
+      })
+      .catch(() => {});
     void bridge.getPdfDefaultAppStatus()
       .then((status) => {
         if (active) setDesktopIntegration(status);
@@ -69,6 +78,7 @@ export function SettingsClient() {
       });
     return () => {
       active = false;
+      stopUpdateListener?.();
     };
   }, []);
 
@@ -140,6 +150,7 @@ export function SettingsClient() {
       message={message}
       desktopIntegration={desktopIntegration}
       desktopIntegrationBusy={desktopIntegrationBusy}
+      desktopUpdate={desktopUpdate}
       onSaveApiKey={(key) => {
         window.sessionStorage.setItem("modu-deepseek-key", key);
         setHasApiKey(true);
@@ -175,6 +186,15 @@ export function SettingsClient() {
       onExportAll={() => void exportAll()}
       onImportArchive={(file) => void importArchive(file)}
       onSetPdfDefaultApp={() => void setPdfDefaultApp()}
+      onCheckForUpdates={() => {
+        void window.moduDesktop?.checkForUpdates?.().then(setDesktopUpdate);
+      }}
+      onDownloadUpdate={() => {
+        void window.moduDesktop?.downloadUpdate?.().then(setDesktopUpdate);
+      }}
+      onInstallUpdate={() => {
+        void window.moduDesktop?.installUpdate?.();
+      }}
       onClearLibrary={() => {
         if (!window.confirm("清空本地资料库？PDF、翻译、注释和词汇都将从这台设备删除，请先导出备份。")) return;
         void clearReaderDatabase(getReaderDatabase()).then(async () => {

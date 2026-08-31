@@ -11,10 +11,12 @@ import {
   FolderClock,
   FolderInput,
   FolderPlus,
+  GripVertical,
   HardDrive,
   MoreHorizontal,
   Pencil,
   Pin,
+  RefreshCw,
   Settings,
   Trash2,
   TriangleAlert,
@@ -22,6 +24,8 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+
+import { compareManualOrder, mergeVisibleOrder, moveOrderedItem } from "@/lib/library-order";
 
 export interface LibraryDocumentView {
   id: string;
@@ -34,6 +38,8 @@ export interface LibraryDocumentView {
   annotationCount: number;
   vocabularyCount?: number;
   lastOpenedAt: string;
+  createdAt?: string;
+  sortOrder?: number;
   pinnedAt?: string;
   folderId?: string;
   coverDataUrl?: string;
@@ -43,6 +49,8 @@ export interface LibraryFolderView {
   id: string;
   name: string;
   documentCount: number;
+  createdAt?: string;
+  sortOrder?: number;
 }
 
 export interface PendingBundleView {
@@ -60,6 +68,8 @@ interface LibraryScreenProps {
   onImport: (files: File[]) => void | Promise<void>;
   onImportBundle?: (file: File) => void | Promise<void>;
   onTogglePin?: (documentId: string, pinned: boolean) => void | Promise<void>;
+  onReorderDocuments?: (orderedIds: string[]) => void | Promise<void>;
+  onReorderFolders?: (orderedIds: string[]) => void | Promise<void>;
   onDelete?: (documentId: string) => void | Promise<void>;
   onExportBeforeDelete?: (documentId: string) => void | Promise<void>;
   onCreateFolder?: (name: string) => void | Promise<void>;
@@ -68,6 +78,7 @@ interface LibraryScreenProps {
   onMoveDocument?: (documentId: string, folderId?: string) => void | Promise<void>;
   importing?: boolean;
   message?: string;
+  updateAvailableVersion?: string;
 }
 
 const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
@@ -84,6 +95,8 @@ export function LibraryScreen({
   onImport,
   onImportBundle,
   onTogglePin,
+  onReorderDocuments,
+  onReorderFolders,
   onDelete,
   onExportBeforeDelete,
   onCreateFolder,
@@ -92,6 +105,7 @@ export function LibraryScreen({
   onMoveDocument,
   importing = false,
   message,
+  updateAvailableVersion,
 }: LibraryScreenProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const bundleInputRef = useRef<HTMLInputElement>(null);
@@ -111,16 +125,13 @@ export function LibraryScreen({
   const [deleteFolderCandidate, setDeleteFolderCandidate] = useState<LibraryFolderView>();
   const [deleteFolderError, setDeleteFolderError] = useState("");
   const [deletingFolder, setDeletingFolder] = useState(false);
-  const sortedDocuments = useMemo(() => [...documents].sort((left, right) => {
-    if (Boolean(left.pinnedAt) !== Boolean(right.pinnedAt)) return left.pinnedAt ? -1 : 1;
-    if (left.pinnedAt && right.pinnedAt && left.pinnedAt !== right.pinnedAt) {
-      return right.pinnedAt.localeCompare(left.pinnedAt);
-    }
-    const openedComparison = right.lastOpenedAt.localeCompare(left.lastOpenedAt);
-    return openedComparison || left.title.localeCompare(right.title, "zh-CN");
-  }), [documents]);
+  const [draggedDocumentId, setDraggedDocumentId] = useState<string>();
+  const [draggedFolderId, setDraggedFolderId] = useState<string>();
+  const [documentDropTargetId, setDocumentDropTargetId] = useState<string>();
+  const [folderDropTargetId, setFolderDropTargetId] = useState<string>();
+  const sortedDocuments = useMemo(() => [...documents].sort(compareManualOrder), [documents]);
   const sortedFolders = useMemo(
-    () => [...folders].sort((left, right) => left.name.localeCompare(right.name, "zh-CN")),
+    () => [...folders].sort(compareManualOrder),
     [folders],
   );
   const unfiledCount = useMemo(
@@ -141,6 +152,30 @@ export function LibraryScreen({
   const folderFeaturesEnabled = folders.length > 0 || Boolean(
     onCreateFolder || onRenameFolder || onDeleteFolder || onMoveDocument,
   );
+  const clearDragState = () => {
+    setDraggedDocumentId(undefined);
+    setDraggedFolderId(undefined);
+    setDocumentDropTargetId(undefined);
+    setFolderDropTargetId(undefined);
+  };
+
+  const reorderVisibleDocuments = (targetId: string) => {
+    if (!draggedDocumentId || !onReorderDocuments) return;
+    const visibleIds = visibleDocuments.map((document) => document.id);
+    const nextVisibleIds = moveOrderedItem(visibleIds, draggedDocumentId, targetId);
+    if (nextVisibleIds === visibleIds) return;
+    const allIds = sortedDocuments.map((document) => document.id);
+    void onReorderDocuments(mergeVisibleOrder(allIds, nextVisibleIds));
+  };
+
+  const reorderFolders = (targetId: string) => {
+    if (!draggedFolderId || !onReorderFolders) return;
+    void onReorderFolders(moveOrderedItem(
+      sortedFolders.map((folder) => folder.id),
+      draggedFolderId,
+      targetId,
+    ));
+  };
 
   const importFiles = (files: FileList | File[]) => {
     const pdfFiles = Array.from(files).filter(
@@ -235,6 +270,13 @@ export function LibraryScreen({
         </div>
 
         {message ? <div className="library-message" role="status">{message}</div> : null}
+        {updateAvailableVersion ? (
+          <a className="library-update-banner" href="/settings">
+            <RefreshCw aria-hidden="true" />
+            <span>墨读 {updateAvailableVersion} 已可用</span>
+            <strong>前往更新</strong>
+          </a>
+        ) : null}
 
         <section className="library-section" aria-labelledby="all-documents-title">
           {folderFeaturesEnabled ? (
@@ -349,16 +391,43 @@ export function LibraryScreen({
                     <b>{documents.length}</b>
                   </button>
                   <button
-                    className={activeFolder === "unfiled" ? "is-active" : ""}
+                    className={`${activeFolder === "unfiled" ? "is-active" : ""} ${folderDropTargetId === "unfiled" ? "is-drop-target" : ""}`}
                     type="button"
                     onClick={() => setActiveFolder("unfiled")}
+                    onDragOver={(event) => {
+                      if (!draggedDocumentId || !onMoveDocument) return;
+                      event.preventDefault();
+                      setFolderDropTargetId("unfiled");
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      if (draggedDocumentId) void onMoveDocument?.(draggedDocumentId, undefined);
+                      clearDragState();
+                    }}
                   >
                     <FolderInput aria-hidden="true" />
                     <span>未分类</span>
                     <b>{unfiledCount}</b>
                   </button>
                   {sortedFolders.map((folder) => (
-                    <div className="folder-nav-row" key={folder.id}>
+                    <div
+                      className={`folder-nav-row ${folderDropTargetId === folder.id ? "is-drop-target" : ""}`}
+                      key={folder.id}
+                      onDragOver={(event) => {
+                        if ((!draggedDocumentId || !onMoveDocument) && (!draggedFolderId || !onReorderFolders)) return;
+                        event.preventDefault();
+                        setFolderDropTargetId(folder.id);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        if (draggedDocumentId) {
+                          void onMoveDocument?.(draggedDocumentId, folder.id);
+                        } else {
+                          reorderFolders(folder.id);
+                        }
+                        clearDragState();
+                      }}
+                    >
                       <button
                         className={activeFolder === folder.id ? "is-active" : ""}
                         type="button"
@@ -369,6 +438,24 @@ export function LibraryScreen({
                         <span>{folder.name}</span>
                         <b>{folder.documentCount}</b>
                       </button>
+                      {onReorderFolders ? (
+                        <button
+                          className="folder-drag-handle"
+                          type="button"
+                          draggable
+                          aria-label={`拖动排序文件夹：${folder.name}`}
+                          title="拖动排序"
+                          onDragStart={(event) => {
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", folder.id);
+                            setDraggedFolderId(folder.id);
+                            setDraggedDocumentId(undefined);
+                          }}
+                          onDragEnd={clearDragState}
+                        >
+                          <GripVertical aria-hidden="true" />
+                        </button>
+                      ) : null}
                       {onRenameFolder || onDeleteFolder ? (
                         <button
                           className="folder-manage-button"
@@ -421,7 +508,7 @@ export function LibraryScreen({
             <div className="folder-document-pane">
               <div className="section-title-row">
                 <h2 id="all-documents-title">{activeFolderName} <span>{visibleDocuments.length}</span></h2>
-                <span>最近阅读</span>
+                <span>拖动调整顺序</span>
               </div>
 
               {documents.length === 0 ? (
@@ -443,9 +530,38 @@ export function LibraryScreen({
                 const hasActions = Boolean(onTogglePin || onDelete || onMoveDocument);
                 return (
                   <article
-                    className={`document-row ${document.pinnedAt ? "is-pinned" : ""} ${hasActions ? "has-actions" : ""} ${documentActionsId === document.id ? "has-open-folder-menu" : ""}`}
+                    className={`document-row ${document.pinnedAt ? "is-pinned" : ""} ${hasActions ? "has-actions" : ""} ${documentActionsId === document.id ? "has-open-folder-menu" : ""} ${documentDropTargetId === document.id ? "is-drop-target" : ""}`}
                     key={document.id}
+                    aria-label={`文献：${document.title}`}
+                    onDragOver={(event) => {
+                      if (!draggedDocumentId || !onReorderDocuments) return;
+                      event.preventDefault();
+                      setDocumentDropTargetId(document.id);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      reorderVisibleDocuments(document.id);
+                      clearDragState();
+                    }}
                   >
+                    {onReorderDocuments ? (
+                      <button
+                        className="document-drag-handle"
+                        type="button"
+                        draggable
+                        aria-label={`拖动排序：${document.title}`}
+                        title="拖动排序或拖到文件夹分类"
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = "move";
+                          event.dataTransfer.setData("text/plain", document.id);
+                          setDraggedDocumentId(document.id);
+                          setDraggedFolderId(undefined);
+                        }}
+                        onDragEnd={clearDragState}
+                      >
+                        <GripVertical aria-hidden="true" />
+                      </button>
+                    ) : null}
                     <a className="document-row-link" href={`/reader/${document.id}`}>
                       <div
                         className="document-cover"

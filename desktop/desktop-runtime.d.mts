@@ -33,6 +33,10 @@ export interface DesktopIpcOptions {
   origin: string;
   getDefaultStatus: () => Promise<unknown> | unknown;
   setDefault: () => Promise<unknown> | unknown;
+  getUpdateState: () => Promise<unknown> | unknown;
+  checkForUpdates: () => Promise<unknown> | unknown;
+  downloadUpdate: () => Promise<unknown> | unknown;
+  installUpdate: () => Promise<unknown> | unknown;
   onOpenError?: (path: string, error: unknown) => void;
 }
 
@@ -51,6 +55,7 @@ export function createSecureWindowOptions(preload: string): {
   minWidth: number;
   minHeight: number;
   show: boolean;
+  autoHideMenuBar: boolean;
   backgroundColor: string;
   webPreferences: {
     preload: string;
@@ -60,6 +65,9 @@ export function createSecureWindowOptions(preload: string): {
     webSecurity: true;
   };
 };
+export function removeApplicationMenu(menu: {
+  setApplicationMenu(value: null): void;
+}): void;
 export function createServerLaunchOptions(options: {
   executablePath: string;
   serverPath: string;

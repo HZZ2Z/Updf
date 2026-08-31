@@ -10,6 +10,7 @@ import {
   createPdfOpenQueue,
   createSecureWindowOptions,
   createServerLaunchOptions,
+  removeApplicationMenu,
   registerDesktopIpc,
   resolveSecondInstancePdfPaths,
   startLocalNextServer,
@@ -53,12 +54,22 @@ describe("Electron desktop runtime", () => {
   });
 
   it("builds an isolated sandboxed browser window", () => {
-    expect(createSecureWindowOptions("/app/preload.cjs").webPreferences).toMatchObject({
+    const options = createSecureWindowOptions("/app/preload.cjs");
+    expect(options).toMatchObject({ autoHideMenuBar: true });
+    expect(options.webPreferences).toMatchObject({
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
       preload: "/app/preload.cjs",
     });
+  });
+
+  it("removes the native File Edit View Window menu", () => {
+    const menu = { setApplicationMenu: vi.fn() };
+
+    removeApplicationMenu(menu);
+
+    expect(menu.setApplicationMenu).toHaveBeenCalledWith(null);
   });
 
   it("starts standalone on the fixed loopback origin using Electron as Node", () => {
@@ -103,6 +114,8 @@ describe("Electron desktop runtime", () => {
       string,
       (event: { senderFrame: { url: string } }) => Promise<unknown>
     >();
+    const getUpdateState = vi.fn(() => ({ status: "idle", currentVersion: "1.1.0" }));
+    const checkForUpdates = vi.fn(() => ({ status: "checking", currentVersion: "1.1.0" }));
     registerDesktopIpc({
       ipcMain: {
         handle: (channel, handler) => handlers.set(channel, handler),
@@ -111,6 +124,10 @@ describe("Electron desktop runtime", () => {
       origin: "http://127.0.0.1:32147",
       getDefaultStatus: vi.fn(),
       setDefault: vi.fn(),
+      getUpdateState,
+      checkForUpdates,
+      downloadUpdate: vi.fn(),
+      installUpdate: vi.fn(),
     });
     const consume = handlers.get("desktop:consume-launch-pdf");
 
@@ -120,6 +137,14 @@ describe("Electron desktop runtime", () => {
     await expect(consume?.({
       senderFrame: { url: "https://attacker.test/" },
     })).rejects.toThrow("拒绝未授权的桌面请求");
+    await expect(handlers.get("desktop:get-update-state")?.({
+      senderFrame: { url: "http://127.0.0.1:32147/settings" },
+    })).resolves.toMatchObject({ status: "idle", currentVersion: "1.1.0" });
+    await expect(handlers.get("desktop:check-for-updates")?.({
+      senderFrame: { url: "https://attacker.test/" },
+    })).rejects.toThrow("拒绝未授权的桌面请求");
+    expect(getUpdateState).toHaveBeenCalledOnce();
+    expect(checkForUpdates).not.toHaveBeenCalled();
   });
 
   it("writes a user desktop entry before requesting the PDF default", async () => {

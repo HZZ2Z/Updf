@@ -15,8 +15,11 @@ import {
   deleteDocumentFromDatabase,
   getReaderDatabase,
   moveDocumentToFolder,
+  reorderLibraryDocuments,
+  reorderLibraryFolders,
   renameLibraryFolder,
 } from "@/lib/database";
+import { compareManualOrder } from "@/lib/library-order";
 import {
   forgetEphemeralDocument,
   getEphemeralDocument,
@@ -26,6 +29,7 @@ import {
 import { importPdfIntoLibrary } from "@/lib/pdf-library-import";
 import { createExportBundle, parsePortableArchive } from "@/lib/portable-data";
 import type { DocumentRecord, TranslationPayload } from "@/lib/types";
+import type { DesktopUpdateState } from "@/types/desktop";
 
 const DESKTOP_DEFAULT_PROMPT_KEY = "modu-desktop-default-prompt-dismissed-v1";
 
@@ -64,6 +68,8 @@ async function toLibraryViews(
         annotationCount,
         vocabularyCount,
         lastOpenedAt: document.lastOpenedAt,
+        createdAt: document.createdAt,
+        sortOrder: document.sortOrder,
         pinnedAt: document.pinnedAt,
         folderId: document.folderId,
         coverDataUrl: document.coverDataUrl,
@@ -89,11 +95,12 @@ export function LibraryClient() {
   const [message, setMessage] = useState("");
   const [showDesktopWelcome, setShowDesktopWelcome] = useState(false);
   const [settingPdfDefault, setSettingPdfDefault] = useState(false);
+  const [desktopUpdate, setDesktopUpdate] = useState<DesktopUpdateState>();
 
   const refresh = useCallback(async () => {
     const database = getReaderDatabase();
     const [storedDocuments, storedFolders, pending] = await Promise.all([
-      database.documents.orderBy("lastOpenedAt").reverse().toArray(),
+      database.documents.toArray(),
       database.folders.toArray(),
       database.pendingBundles.orderBy("importedAt").reverse().toArray(),
     ]);
@@ -102,6 +109,8 @@ export function LibraryClient() {
     setFolders(storedFolders.map((folder) => ({
       id: folder.id,
       name: folder.name,
+      createdAt: folder.createdAt,
+      sortOrder: folder.sortOrder,
       documentCount: allDocuments.filter((document) => document.folderId === folder.id).length,
     })));
     setPendingBundles(
@@ -124,6 +133,14 @@ export function LibraryClient() {
     if (!desktop) return;
 
     let active = true;
+    const stopUpdateListener = desktop.onUpdateState?.((state) => {
+      if (active) setDesktopUpdate(state);
+    });
+    void desktop.getUpdateState?.()
+      .then((state) => {
+        if (active) setDesktopUpdate(state);
+      })
+      .catch(() => {});
     void desktop.getPdfDefaultAppStatus()
       .then((status) => {
         if (!active || !status.available || status.isDefault) return;
@@ -136,6 +153,7 @@ export function LibraryClient() {
 
     return () => {
       active = false;
+      stopUpdateListener?.();
     };
   }, []);
 
@@ -217,11 +235,43 @@ export function LibraryClient() {
   const handleTogglePin = useCallback(async (documentId: string, pinned: boolean) => {
     try {
       const pinnedAt = pinned ? new Date().toISOString() : undefined;
-      const updated = await getReaderDatabase().documents.update(documentId, { pinnedAt });
-      if (!updated && !updateEphemeralDocument(documentId, { pinnedAt })) {
+      const currentOrder = [...documents].sort(compareManualOrder).map((document) => document.id);
+      const orderedIds = pinned
+        ? [documentId, ...currentOrder.filter((id) => id !== documentId)]
+        : currentOrder;
+      await reorderLibraryDocuments(getReaderDatabase(), orderedIds);
+      orderedIds.forEach((id, index) => {
+        updateEphemeralDocument(id, { sortOrder: (index + 1) * 1_000 });
+      });
+      const sortOrder = (orderedIds.indexOf(documentId) + 1) * 1_000;
+      const updated = await getReaderDatabase().documents.update(documentId, { pinnedAt, sortOrder });
+      if (!updated && !updateEphemeralDocument(documentId, { pinnedAt, sortOrder })) {
         throw new Error("找不到这份文献");
       }
       setMessage(pinned ? "已将文献置顶。" : "已取消置顶。");
+      await refresh();
+    } catch (error) {
+      setMessage(errorMessage(error));
+    }
+  }, [documents, refresh]);
+
+  const handleReorderDocuments = useCallback(async (orderedIds: string[]) => {
+    try {
+      await reorderLibraryDocuments(getReaderDatabase(), orderedIds);
+      orderedIds.forEach((id, index) => {
+        updateEphemeralDocument(id, { sortOrder: (index + 1) * 1_000 });
+      });
+      setMessage("文献顺序已保存。");
+      await refresh();
+    } catch (error) {
+      setMessage(errorMessage(error));
+    }
+  }, [refresh]);
+
+  const handleReorderFolders = useCallback(async (orderedIds: string[]) => {
+    try {
+      await reorderLibraryFolders(getReaderDatabase(), orderedIds);
+      setMessage("文件夹顺序已保存。");
       await refresh();
     } catch (error) {
       setMessage(errorMessage(error));
@@ -343,9 +393,18 @@ export function LibraryClient() {
         pendingBundles={pendingBundles}
         importing={importing}
         message={message}
+        updateAvailableVersion={
+          desktopUpdate?.status === "available"
+          || desktopUpdate?.status === "downloading"
+          || desktopUpdate?.status === "ready"
+            ? desktopUpdate.availableVersion
+            : undefined
+        }
         onImport={handlePdfImport}
         onImportBundle={handleBundleImport}
         onTogglePin={handleTogglePin}
+        onReorderDocuments={handleReorderDocuments}
+        onReorderFolders={handleReorderFolders}
         onCreateFolder={handleCreateFolder}
         onRenameFolder={handleRenameFolder}
         onDeleteFolder={handleDeleteFolder}

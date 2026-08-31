@@ -297,6 +297,32 @@ textarea:focus-visible,
   border-radius: var(--radius-sm);
 }
 
+.library-update-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 11px 14px;
+  color: #1f4fa7;
+  background: #f3f7ff;
+  border: 1px solid #c9dbff;
+  border-radius: var(--radius-sm);
+}
+
+.library-update-banner svg {
+  width: 16px;
+  height: 16px;
+}
+
+.library-update-banner span {
+  flex: 1;
+  font-size: 12px;
+}
+
+.library-update-banner strong {
+  font-size: 12px;
+}
+
 .library-section {
   margin-top: 28px;
 }
@@ -414,6 +440,13 @@ textarea:focus-visible,
   position: relative;
 }
 
+.folder-nav-row.is-drop-target,
+.folder-nav > button.is-drop-target {
+  background: #eaf2ff;
+  box-shadow: inset 0 0 0 1px rgba(47, 111, 237, 0.42);
+  border-radius: 7px;
+}
+
 .folder-nav-row > button:first-child {
   padding-right: 35px;
 }
@@ -422,6 +455,36 @@ textarea:focus-visible,
   position: absolute;
   top: 4px;
   right: 4px;
+}
+
+.folder-drag-handle {
+  position: absolute;
+  top: 4px;
+  left: 3px;
+  width: 25px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--slate-400);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: grab;
+}
+
+.folder-drag-handle:active,
+.document-drag-handle:active {
+  cursor: grabbing;
+}
+
+.folder-nav-row:has(.folder-drag-handle) > button:first-child {
+  padding-left: 31px;
+}
+
+.folder-drag-handle svg {
+  width: 14px;
+  height: 14px;
 }
 
 .folder-action-menu,
@@ -547,6 +610,43 @@ textarea:focus-visible,
 
 .document-row:hover {
   background: #fbfdff;
+}
+
+.document-row.is-drop-target {
+  background: #f1f6ff;
+  box-shadow: inset 0 2px 0 var(--blue);
+}
+
+.document-drag-handle {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 2px;
+  width: 22px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: var(--slate-400);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: grab;
+  transform: translateY(-50%);
+}
+
+.document-drag-handle:hover {
+  color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.document-drag-handle svg {
+  width: 15px;
+  height: 15px;
+}
+
+.document-row:has(.document-drag-handle) .document-row-link {
+  padding-left: 30px;
 }
 
 .document-row.is-pinned {
@@ -1572,6 +1672,64 @@ textarea:focus-visible,
   font-weight: 650;
 }
 
+.desktop-update-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 22px;
+  padding: 18px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.desktop-update-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.desktop-update-row strong {
+  color: var(--navy-800);
+  font-size: 13px;
+}
+
+.desktop-update-row span {
+  color: var(--slate-500);
+  font-size: 11px;
+}
+
+.desktop-update-progress {
+  height: 6px;
+  overflow: hidden;
+  margin-top: 12px;
+  background: #e7edf4;
+  border-radius: 999px;
+}
+
+.desktop-update-progress i {
+  height: 100%;
+  display: block;
+  background: var(--blue);
+  border-radius: inherit;
+  transition: width 160ms ease;
+}
+
+.desktop-update-notes {
+  max-height: 110px;
+  overflow: auto;
+  margin: 12px 0 0;
+  padding: 11px 13px;
+  color: var(--slate-700);
+  white-space: pre-wrap;
+  background: #fbfcfe;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 .settings-inline-error {
   margin: 12px 0 0;
   color: var(--danger);
@@ -1686,7 +1844,8 @@ textarea:focus-visible,
 
   .api-key-form > div,
   .data-actions,
-  .desktop-integration-row {
+  .desktop-integration-row,
+  .desktop-update-row {
     flex-direction: column;
     align-items: stretch;
   }
@@ -2010,6 +2169,22 @@ textarea:focus-visible,
 
 .left-panel-tabs {
   grid-template-columns: 1fr 1fr;
+}
+
+.left-panel-heading {
+  height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  color: var(--navy-800);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.left-panel-heading svg {
+  width: 16px;
+  color: var(--blue);
 }
 
 .left-panel-tabs button,

@@ -48,6 +48,7 @@ export function createSecureWindowOptions(preload) {
     minWidth: 860,
     minHeight: 600,
     show: false,
+    autoHideMenuBar: true,
     backgroundColor: "#f4f6f8",
     webPreferences: {
       preload,
@@ -57,6 +58,10 @@ export function createSecureWindowOptions(preload) {
       webSecurity: true,
     },
   };
+}
+
+export function removeApplicationMenu(menu) {
+  menu.setApplicationMenu(null);
 }
 
 export function createServerLaunchOptions({
@@ -136,6 +141,10 @@ export function registerDesktopIpc({
   origin,
   getDefaultStatus,
   setDefault,
+  getUpdateState,
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
   onOpenError = () => {},
 }) {
   const assertTrusted = (event) => {
@@ -163,5 +172,21 @@ export function registerDesktopIpc({
   ipcMain.handle("desktop:set-pdf-default", async (event) => {
     assertTrusted(event);
     return setDefault();
+  });
+  ipcMain.handle("desktop:get-update-state", async (event) => {
+    assertTrusted(event);
+    return getUpdateState();
+  });
+  ipcMain.handle("desktop:check-for-updates", async (event) => {
+    assertTrusted(event);
+    return checkForUpdates();
+  });
+  ipcMain.handle("desktop:download-update", async (event) => {
+    assertTrusted(event);
+    return downloadUpdate();
+  });
+  ipcMain.handle("desktop:install-update", async (event) => {
+    assertTrusted(event);
+    return installUpdate();
   });
 }

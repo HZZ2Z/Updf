@@ -46,6 +46,7 @@ export interface DocumentRecord {
   author?: string;
   createdAt: string;
   lastOpenedAt: string;
+  sortOrder?: number;
   pinnedAt?: string;
   folderId?: string;
   currentPage: number;
@@ -65,6 +66,7 @@ export interface LibraryFolder {
   normalizedName: string;
   createdAt: string;
   updatedAt: string;
+  sortOrder?: number;
 }
 
 export interface TranslationPayload {

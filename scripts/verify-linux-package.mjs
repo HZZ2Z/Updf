@@ -24,8 +24,8 @@ function run(command, args, capture = false) {
 
 export function expectedLinuxArtifacts(version) {
   return [
-    `墨读-${version}-x86_64.AppImage`,
-    `墨读-${version}-x86_64.deb`,
+    `Modu-${version}-x86_64.AppImage`,
+    `Modu-${version}-x86_64.deb`,
   ];
 }
 
@@ -62,6 +62,7 @@ export async function verifyLinuxPackage(rootDir) {
     throw new Error("AppImage 没有可执行权限");
   }
   await access(debPath);
+  await access(join(rootDir, "dist", "latest-linux.yml"));
 
   const extractionRoot = await mkdtemp(join(tmpdir(), "modu-deb-"));
   try {
@@ -84,15 +85,17 @@ export async function verifyLinuxPackage(rootDir) {
       "app-server",
     );
     await validateStandaloneServerFiles(serverRoot);
+    const appAsarPath = join(
+      extractionRoot,
+      "opt",
+      "墨读",
+      "resources",
+      "app.asar",
+    );
     await Promise.all([
       access(join(extractionRoot, "opt", "墨读", "modu-reader")),
-      access(join(
-        extractionRoot,
-        "opt",
-        "墨读",
-        "resources",
-        "app.asar",
-      )),
+      access(appAsarPath),
+      access(join(extractionRoot, "opt", "墨读", "resources", "app-update.yml")),
       access(join(
         serverRoot,
         "public",
@@ -107,6 +110,30 @@ export async function verifyLinuxPackage(rootDir) {
         "icon.svg",
       )),
     ]);
+    await Promise.all([
+      access(join(
+        extractionRoot,
+        "opt",
+        "墨读",
+        "resources",
+        "updater",
+        "node_modules",
+        "electron-updater",
+        "package.json",
+      )),
+      access(join(
+        extractionRoot,
+        "opt",
+        "墨读",
+        "resources",
+        "updater",
+        "node_modules",
+        "builder-util-runtime",
+        "package.json",
+      )),
+    ]).catch(() => {
+      throw new Error("安装包缺少 electron-updater 运行时");
+    });
     const listing = run("dpkg-deb", ["-c", debPath], true);
     if (/reader-e2e-sample|\.env(?:\.|$)|api[-_]?key|test-results/i.test(listing)) {
       throw new Error("安装包包含测试或敏感文件");

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -41,6 +41,14 @@ const folderDocuments = [
 
 const roboticsFolder = { id: "robotics", name: "Robotics", documentCount: 2 };
 
+function dragData() {
+  return {
+    effectAllowed: "all",
+    setData: vi.fn(),
+    getData: vi.fn(),
+  };
+}
+
 describe("LibraryScreen", () => {
   it("shows the import-first empty state", () => {
     render(
@@ -56,6 +64,19 @@ describe("LibraryScreen", () => {
     expect(screen.getByLabelText("选择 PDF 文件")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "导入 PDF" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /拖放 PDF 到这里，或点击选择文件/ })).toBeInTheDocument();
+  });
+
+  it("links an automatically detected update to settings without interrupting the library", () => {
+    render(
+      <LibraryScreen
+        documents={[]}
+        pendingBundles={[]}
+        updateAvailableVersion="1.2.0"
+        onImport={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: /墨读 1.2.0 已可用/ })).toHaveAttribute("href", "/settings");
   });
 
   it("renders document progress and reading records", () => {
@@ -220,6 +241,63 @@ describe("LibraryScreen", () => {
     await userEvent.click(screen.getByRole("menuitem", { name: "移动到文件夹" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "未分类" }));
     expect(onMoveDocument).toHaveBeenCalledWith("kinematics", undefined);
+  });
+
+  it("drags documents into a manual order and onto folders for classification", () => {
+    const onReorderDocuments = vi.fn();
+    const onMoveDocument = vi.fn();
+    render(
+      <LibraryScreen
+        documents={folderDocuments.map((document, index) => ({ ...document, sortOrder: index + 1 }))}
+        folders={[roboticsFolder]}
+        pendingBundles={[]}
+        onImport={vi.fn()}
+        onMoveDocument={onMoveDocument}
+        onReorderDocuments={onReorderDocuments}
+      />,
+    );
+
+    fireEvent.dragStart(screen.getByRole("button", { name: "拖动排序：Linear Algebra" }), {
+      dataTransfer: dragData(),
+    });
+    fireEvent.dragOver(screen.getByLabelText("文献：Kinematics"));
+    fireEvent.drop(screen.getByLabelText("文献：Kinematics"));
+    expect(onReorderDocuments).toHaveBeenCalledWith([
+      "linear-algebra",
+      "kinematics",
+      "robot-dynamics",
+    ]);
+
+    fireEvent.dragStart(screen.getByRole("button", { name: "拖动排序：Linear Algebra" }), {
+      dataTransfer: dragData(),
+    });
+    fireEvent.dragOver(screen.getByRole("button", { name: "Robotics 2" }));
+    fireEvent.drop(screen.getByRole("button", { name: "Robotics 2" }));
+    expect(onMoveDocument).toHaveBeenCalledWith("linear-algebra", "robotics");
+  });
+
+  it("drags course folders into a persistent manual order", () => {
+    const onReorderFolders = vi.fn();
+    render(
+      <LibraryScreen
+        documents={folderDocuments}
+        folders={[
+          { ...roboticsFolder, sortOrder: 1 },
+          { id: "math", name: "Mathematics", documentCount: 1, sortOrder: 2 },
+        ]}
+        pendingBundles={[]}
+        onImport={vi.fn()}
+        onReorderFolders={onReorderFolders}
+      />,
+    );
+
+    fireEvent.dragStart(screen.getByRole("button", { name: "拖动排序文件夹：Mathematics" }), {
+      dataTransfer: dragData(),
+    });
+    fireEvent.dragOver(screen.getByRole("button", { name: "Robotics 2" }).parentElement!);
+    fireEvent.drop(screen.getByRole("button", { name: "Robotics 2" }).parentElement!);
+
+    expect(onReorderFolders).toHaveBeenCalledWith(["math", "robotics"]);
   });
 
   it("keeps pinning visible and groups secondary document actions", async () => {

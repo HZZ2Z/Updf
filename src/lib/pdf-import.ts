@@ -41,6 +41,7 @@ export async function createDocumentRecord(
     author: metadata.author,
     createdAt: now,
     lastOpenedAt: now,
+    sortOrder: Date.now(),
     currentPage: 1,
     continuousPage: 1,
     bookPage: 1,

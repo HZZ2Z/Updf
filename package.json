@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "dexie": "latest",
+    "electron-updater": "6.8.9",
     "lucide-react": "latest",
     "next": "latest",
     "page-flip": "latest",

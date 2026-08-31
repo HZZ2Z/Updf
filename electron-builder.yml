@@ -1,5 +1,9 @@
 appId: com.hzz2z.modureader
 productName: 墨读
+publish:
+  provider: github
+  owner: HZZ2Z
+  repo: Updf
 asar: true
 directories:
   output: dist
@@ -20,6 +24,25 @@ extraResources:
       - "**/*"
   - from: build/icon.svg
     to: assets/icon.svg
+  - from: node_modules
+    to: updater/node_modules
+    filter:
+      - electron-updater/**/*
+      - builder-util-runtime/**/*
+      - fs-extra/**/*
+      - js-yaml/**/*
+      - lazy-val/**/*
+      - lodash.escaperegexp/**/*
+      - lodash.isequal/**/*
+      - semver/**/*
+      - tiny-typed-emitter/**/*
+      - debug/**/*
+      - sax/**/*
+      - graceful-fs/**/*
+      - jsonfile/**/*
+      - universalify/**/*
+      - argparse/**/*
+      - ms/**/*
 linux:
   target:
     - AppImage
@@ -33,4 +56,4 @@ linux:
   maintainer: HZZ2Z <HZZ2Z@users.noreply.github.com>
   mimeTypes:
     - application/pdf
-artifactName: "墨读-${version}-x86_64.${ext}"
+artifactName: "Modu-${version}-x86_64.${ext}"

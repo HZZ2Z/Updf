@@ -239,4 +239,40 @@ describe("SettingsScreen", () => {
 
     expect(screen.queryByRole("heading", { name: "PDF 默认应用" })).not.toBeInTheDocument();
   });
+
+  it("shows an available desktop update and waits for explicit download", async () => {
+    const onDownloadUpdate = vi.fn();
+    render(
+      <SettingsScreen
+        hasApiKey={false}
+        hasGoogleApiKey={false}
+        translationProvider="deepseek"
+        targetLanguage="zh-CN"
+        documentCount={0}
+        recordCount={0}
+        desktopUpdate={{
+          status: "available",
+          currentVersion: "1.1.0",
+          availableVersion: "1.2.0",
+          releaseNotes: "更流畅的阅读体验",
+        }}
+        onSaveApiKey={vi.fn()}
+        onClearApiKey={vi.fn()}
+        onSaveGoogleApiKey={vi.fn()}
+        onClearGoogleApiKey={vi.fn()}
+        onTranslationProviderChange={vi.fn()}
+        onTargetLanguageChange={vi.fn()}
+        onExportAll={vi.fn()}
+        onImportArchive={vi.fn()}
+        onClearLibrary={vi.fn()}
+        onDownloadUpdate={onDownloadUpdate}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "应用更新" })).toBeInTheDocument();
+    expect(screen.getByText("发现新版本 1.2.0")).toBeInTheDocument();
+    expect(onDownloadUpdate).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "下载更新" }));
+    expect(onDownloadUpdate).toHaveBeenCalledOnce();
+  });
 });

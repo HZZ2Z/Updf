@@ -7,6 +7,7 @@ import {
   FileCheck2,
   KeyRound,
   Languages,
+  RefreshCw,
   ShieldCheck,
   Trash2,
   Upload,
@@ -15,7 +16,7 @@ import { useRef, useState, type FormEvent } from "react";
 
 import type { TranslationProvider } from "@/lib/types";
 import type { TranslationUsageSummary } from "@/lib/translation-usage";
-import type { DesktopIntegrationStatus } from "@/types/desktop";
+import type { DesktopIntegrationStatus, DesktopUpdateState } from "@/types/desktop";
 
 interface SettingsScreenProps {
   hasApiKey: boolean;
@@ -28,6 +29,7 @@ interface SettingsScreenProps {
   message?: string;
   desktopIntegration?: DesktopIntegrationStatus;
   desktopIntegrationBusy?: boolean;
+  desktopUpdate?: DesktopUpdateState;
   onSaveApiKey: (key: string) => void;
   onClearApiKey: () => void;
   onSaveGoogleApiKey: (key: string) => void;
@@ -38,6 +40,9 @@ interface SettingsScreenProps {
   onImportArchive: (file: File) => void;
   onClearLibrary: () => void;
   onSetPdfDefaultApp?: () => void;
+  onCheckForUpdates?: () => void;
+  onDownloadUpdate?: () => void;
+  onInstallUpdate?: () => void;
 }
 
 export function SettingsScreen({
@@ -51,6 +56,7 @@ export function SettingsScreen({
   message,
   desktopIntegration,
   desktopIntegrationBusy = false,
+  desktopUpdate,
   onSaveApiKey,
   onClearApiKey,
   onSaveGoogleApiKey,
@@ -61,6 +67,9 @@ export function SettingsScreen({
   onImportArchive,
   onClearLibrary,
   onSetPdfDefaultApp,
+  onCheckForUpdates,
+  onDownloadUpdate,
+  onInstallUpdate,
 }: SettingsScreenProps) {
   const [apiKey, setApiKey] = useState("");
   const [googleApiKey, setGoogleApiKey] = useState("");
@@ -146,6 +155,65 @@ export function SettingsScreen({
             {desktopIntegration.error ? (
               <p className="settings-inline-error">{desktopIntegration.error}</p>
             ) : null}
+          </section>
+        ) : null}
+
+        {desktopUpdate ? (
+          <section className="settings-section">
+            <div className="settings-section-heading">
+              <RefreshCw />
+              <div>
+                <h2>应用更新</h2>
+                <p>启动后自动后台检查；下载与安装只会在你确认后进行。</p>
+              </div>
+            </div>
+            <div className="desktop-update-row">
+              <div>
+                <strong>
+                  {desktopUpdate.status === "available"
+                    ? `发现新版本 ${desktopUpdate.availableVersion}`
+                    : desktopUpdate.status === "downloading"
+                      ? `正在下载 ${desktopUpdate.availableVersion ?? "新版本"}`
+                      : desktopUpdate.status === "ready"
+                        ? `${desktopUpdate.availableVersion ?? "新版本"} 已准备好`
+                        : desktopUpdate.status === "checking"
+                          ? "正在检查更新…"
+                          : desktopUpdate.status === "up-to-date"
+                            ? "当前已是最新版本"
+                            : desktopUpdate.status === "error"
+                              ? "暂时无法检查更新"
+                              : desktopUpdate.status === "unsupported"
+                                ? "开发模式不检查更新"
+                                : "自动更新已启用"}
+                </strong>
+                <span>当前版本 {desktopUpdate.currentVersion}</span>
+              </div>
+              {desktopUpdate.status === "available" ? (
+                <button className="primary-button" type="button" onClick={onDownloadUpdate}>下载更新</button>
+              ) : desktopUpdate.status === "ready" ? (
+                <button className="primary-button" type="button" onClick={onInstallUpdate}>重启并更新</button>
+              ) : (
+                <button
+                  className="secondary-button"
+                  type="button"
+                  disabled={desktopUpdate.status === "checking" || desktopUpdate.status === "downloading" || desktopUpdate.status === "unsupported"}
+                  onClick={onCheckForUpdates}
+                >
+                  {desktopUpdate.status === "downloading"
+                    ? `已下载 ${desktopUpdate.progress ?? 0}%`
+                    : desktopUpdate.status === "checking" ? "正在检查…" : "检查更新"}
+                </button>
+              )}
+            </div>
+            {desktopUpdate.status === "downloading" ? (
+              <div className="desktop-update-progress" aria-label={`更新下载进度 ${desktopUpdate.progress ?? 0}%`}>
+                <i style={{ width: `${desktopUpdate.progress ?? 0}%` }} />
+              </div>
+            ) : null}
+            {desktopUpdate.releaseNotes ? (
+              <p className="desktop-update-notes">{desktopUpdate.releaseNotes}</p>
+            ) : null}
+            {desktopUpdate.error ? <p className="settings-inline-error">{desktopUpdate.error}</p> : null}
           </section>
         ) : null}
 

@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { copyFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -9,6 +10,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   shell,
 } from "electron";
 
@@ -25,9 +27,13 @@ import {
   createPdfOpenQueue,
   createSecureWindowOptions,
   registerDesktopIpc,
+  removeApplicationMenu,
   resolveSecondInstancePdfPaths,
   startLocalNextServer,
 } from "./desktop-runtime.mjs";
+import { createUpdateManager } from "./update-manager.mjs";
+
+const require = createRequire(import.meta.url);
 
 const desktopDirectory = dirname(fileURLToPath(import.meta.url));
 const queue = createPdfOpenQueue();
@@ -37,6 +43,7 @@ const gotLock = app.requestSingleInstanceLock({ pdfPaths: launchPaths });
 let mainWindow;
 let serverProcess;
 let isQuitting = false;
+let updateManager;
 
 function defaultIntegrationOptions() {
   return {
@@ -50,6 +57,13 @@ function defaultIntegrationOptions() {
   };
 }
 
+function getAutoUpdater() {
+  const modulePath = app.isPackaged
+    ? join(process.resourcesPath, "updater", "node_modules", "electron-updater")
+    : "electron-updater";
+  return require(modulePath).autoUpdater;
+}
+
 function focusMainWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   if (mainWindow.isMinimized()) mainWindow.restore();
@@ -61,6 +75,11 @@ function notifyPdfAvailable() {
   if (mainWindow && !mainWindow.isDestroyed() && queue.size > 0) {
     mainWindow.webContents.send("desktop:pdf-available");
   }
+}
+
+function notifyUpdateState(state = updateManager?.getState()) {
+  if (!state || !mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send("desktop:update-state", state);
 }
 
 function showStartupErrorAndQuit(error) {
@@ -81,6 +100,13 @@ async function openExternalHttps(value) {
 }
 
 async function startApplication() {
+  removeApplicationMenu(Menu);
+  updateManager = createUpdateManager({
+    updater: getAutoUpdater(),
+    currentVersion: app.getVersion(),
+    isPackaged: app.isPackaged,
+    onStateChange: notifyUpdateState,
+  });
   const serverPath = app.isPackaged
     ? join(process.resourcesPath, "app-server", "server.js")
     : join(app.getAppPath(), ".desktop-runtime", "server", "server.js");
@@ -113,6 +139,10 @@ async function startApplication() {
     origin: APP_ORIGIN,
     getDefaultStatus: () => getPdfDefaultAppStatus(defaultIntegrationOptions()),
     setDefault: () => setAsPdfDefaultApp(defaultIntegrationOptions()),
+    getUpdateState: () => updateManager.getState(),
+    checkForUpdates: () => updateManager.check(),
+    downloadUpdate: () => updateManager.download(),
+    installUpdate: () => updateManager.install(),
     onOpenError: (path, error) => {
       void dialog.showMessageBox(mainWindow, {
         type: "error",
@@ -124,6 +154,13 @@ async function startApplication() {
   });
 
   mainWindow.once("ready-to-show", () => mainWindow?.show());
+  mainWindow.webContents.once("did-finish-load", () => {
+    notifyUpdateState();
+    const updateTimer = setTimeout(() => {
+      void updateManager?.check();
+    }, 12_000);
+    updateTimer.unref();
+  });
   mainWindow.on("closed", () => {
     mainWindow = undefined;
   });
