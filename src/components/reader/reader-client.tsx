@@ -11,6 +11,7 @@ import { NoteDialog } from "@/components/reader/note-dialog";
 import { ReaderLeftPanel } from "@/components/reader/reader-left-panel";
 import { ReaderToolbar } from "@/components/reader/reader-toolbar";
 import { SelectionToolbar } from "@/components/reader/selection-toolbar";
+import { useReaderPanels } from "@/components/reader/use-reader-panels";
 import { getReaderDatabase } from "@/lib/database";
 import { getEphemeralDocument, updateEphemeralDocument } from "@/lib/pdf-engine";
 import { mergePdfPageSizes, scanPdfPageSizes } from "@/lib/pdf-page-geometry";
@@ -87,6 +88,15 @@ function safeFileName(title: string) {
 }
 
 export function ReaderClient({ documentId }: ReaderClientProps) {
+  const {
+    leftPanelOpen,
+    inspectorOpen,
+    focusMode,
+    toggleLeftPanel,
+    toggleInspector,
+    openInspector,
+    toggleFocusMode,
+  } = useReaderPanels(documentId);
   const [documentRecord, setDocumentRecord] = useState<DocumentRecord>();
   const [pdf, setPdf] = useState<PDFDocumentProxy>();
   const [pageSizes, setPageSizes] = useState<PdfPageSizeMap>({});
@@ -141,11 +151,16 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
     provider: TranslationService;
   } | undefined>(undefined);
   const focusTranslation = useCallback((markId: string) => {
+    openInspector();
     setTranslationFocus((current) => ({
       markId,
       request: (current?.request ?? 0) + 1,
     }));
-  }, []);
+  }, [openInspector]);
+  const focusAnnotation = useCallback((annotationId: string) => {
+    openInspector();
+    setSelectedAnnotationId(annotationId);
+  }, [openInspector]);
 
   const refreshRecords = useCallback(async () => {
     const database = getReaderDatabase();
@@ -582,9 +597,9 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
     });
     setNoteDialog(undefined);
     setSelection(undefined);
-    setSelectedAnnotationId(annotation.id);
+    focusAnnotation(annotation.id);
     window.getSelection()?.removeAllRanges();
-  }, [documentId, noteDialog]);
+  }, [documentId, focusAnnotation, noteDialog]);
 
   const deleteAnnotation = useCallback(async (annotationId: string) => {
     if (!window.confirm("删除这条注释或高亮？此操作无法撤销。")) return;
@@ -661,13 +676,16 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
   }
 
   return (
-    <div className="reader-shell">
+    <div className={`reader-shell ${inspectorOpen ? "" : "is-inspector-closed"}`}>
       <ReaderToolbar
         title={documentRecord.title}
         page={page}
         pageCount={documentRecord.pageCount}
         mode={mode}
         zoom={zoom}
+        leftPanelOpen={leftPanelOpen}
+        inspectorOpen={inspectorOpen}
+        focusMode={focusMode}
         onModeChange={(nextMode) => {
           activeModeRef.current = nextMode;
           setMode(nextMode);
@@ -683,6 +701,9 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
           setZoom(kind === "width" ? widthScale : pageScale);
         }}
         onExport={exportRecords}
+        onToggleLeftPanel={toggleLeftPanel}
+        onToggleInspector={toggleInspector}
+        onToggleFocusMode={toggleFocusMode}
       />
 
       {!documentRecord.hasTextLayer ? (
@@ -690,14 +711,16 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
       ) : null}
       {status ? <div className="reader-status" role="status"><span>{status}</span><button type="button" aria-label="关闭消息" onClick={() => setStatus("")}><X /></button></div> : null}
 
-      <div className="reader-workspace">
-        <ReaderLeftPanel
-          title={documentRecord.title}
-          pageCount={documentRecord.pageCount}
-          currentPage={page}
-          outline={outline}
-          onPageChange={navigateToPage}
-        />
+      <div className={`reader-workspace ${leftPanelOpen ? "" : "is-left-panel-closed"} ${inspectorOpen ? "" : "is-inspector-closed"}`}>
+        {leftPanelOpen ? (
+          <ReaderLeftPanel
+            title={documentRecord.title}
+            pageCount={documentRecord.pageCount}
+            currentPage={page}
+            outline={outline}
+            onPageChange={navigateToPage}
+          />
+        ) : null}
         <main ref={canvasAreaRef} className={`reader-canvas-area mode-${mode}`}>
           {mode === "continuous" ? (
             <ContinuousViewer
@@ -712,7 +735,7 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
               onPageChange={handleContinuousPageChange}
               onSelection={setSelection}
               onTranslationClick={focusTranslation}
-              onAnnotationClick={setSelectedAnnotationId}
+              onAnnotationClick={focusAnnotation}
             />
           ) : (
             <BookViewer
@@ -727,11 +750,11 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
               onPageChange={handleBookPageChange}
               onSelection={setSelection}
               onTranslationClick={focusTranslation}
-              onAnnotationClick={setSelectedAnnotationId}
+              onAnnotationClick={focusAnnotation}
             />
           )}
         </main>
-        <InspectorPanel
+        {inspectorOpen ? <InspectorPanel
           translations={translationViews}
           annotations={annotations}
           vocabularyTranslationIds={new Set(vocabulary.map((item) => item.translationId))}
@@ -756,7 +779,7 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
             anchor: { page, exact: "", prefix: "", suffix: "", rotation: 0, rects: [] },
           })}
           onExportMarkdown={exportMarkdown}
-        />
+        /> : null}
       </div>
 
       {selection ? (

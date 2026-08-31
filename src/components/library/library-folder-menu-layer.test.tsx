@@ -40,10 +40,11 @@ describe("document folder menu layering", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "移动文献：Kinematics" }));
+    await userEvent.click(screen.getByRole("button", { name: "更多操作：Kinematics" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "移动到文件夹" }));
 
-    const openRow = screen.getByRole("button", { name: "移动文献：Kinematics" }).closest("article");
-    const followingRow = screen.getByRole("button", { name: "移动文献：Robot Dynamics" }).closest("article");
+    const openRow = screen.getByRole("button", { name: "更多操作：Kinematics" }).closest("article");
+    const followingRow = screen.getByRole("button", { name: "更多操作：Robot Dynamics" }).closest("article");
     const openRowLevel = Number.parseInt(getComputedStyle(openRow!).zIndex, 10) || 0;
     const followingRowLevel = Number.parseInt(getComputedStyle(followingRow!).zIndex, 10) || 0;
 

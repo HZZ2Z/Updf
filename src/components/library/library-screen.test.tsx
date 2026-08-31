@@ -54,7 +54,8 @@ describe("LibraryScreen", () => {
     expect(screen.getByRole("heading", { name: "文献资料库" })).toBeInTheDocument();
     expect(screen.getByText("把知识留在本地，把阅读变成积累")).toBeInTheDocument();
     expect(screen.getByLabelText("选择 PDF 文件")).toBeInTheDocument();
-    expect(screen.getByText("拖放 PDF 到这里")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "导入 PDF" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /拖放 PDF 到这里，或点击选择文件/ })).toBeInTheDocument();
   });
 
   it("renders document progress and reading records", () => {
@@ -186,7 +187,8 @@ describe("LibraryScreen", () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "删除文献：Research to remove" }));
+    await userEvent.click(screen.getByRole("button", { name: "更多操作：Research to remove" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "删除文献" }));
 
     expect(screen.getByRole("dialog", { name: "删除文献" })).toBeInTheDocument();
     expect(screen.getByText("词汇本中的 3 条词汇会保留，仍可继续复习。")).toBeInTheDocument();
@@ -214,9 +216,32 @@ describe("LibraryScreen", () => {
     expect(screen.getByText("Kinematics")).toBeInTheDocument();
     expect(screen.queryByText("Linear Algebra")).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "移动文献：Kinematics" }));
+    await userEvent.click(screen.getByRole("button", { name: "更多操作：Kinematics" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "移动到文件夹" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "未分类" }));
     expect(onMoveDocument).toHaveBeenCalledWith("kinematics", undefined);
+  });
+
+  it("keeps pinning visible and groups secondary document actions", async () => {
+    render(
+      <LibraryScreen
+        documents={[folderDocuments[0]]}
+        folders={[roboticsFolder]}
+        pendingBundles={[]}
+        onImport={vi.fn()}
+        onMoveDocument={vi.fn()}
+        onTogglePin={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "置顶文献：Kinematics" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "删除文献：Kinematics" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "更多操作：Kinematics" }));
+
+    expect(screen.getByRole("menuitem", { name: "移动到文件夹" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "删除文献" })).toBeInTheDocument();
   });
 
   it("creates and renames a course folder", async () => {

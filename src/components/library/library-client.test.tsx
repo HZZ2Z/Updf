@@ -101,7 +101,8 @@ describe("LibraryClient document management", () => {
     render(<LibraryClient />);
 
     await screen.findByText("Vocabulary source");
-    await userEvent.click(screen.getByRole("button", { name: "删除文献：Vocabulary source" }));
+    await userEvent.click(screen.getByRole("button", { name: "更多操作：Vocabulary source" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "删除文献" }));
     await userEvent.click(screen.getByRole("button", { name: "永久删除" }));
 
     await waitFor(async () => {
@@ -127,7 +128,8 @@ describe("LibraryClient document management", () => {
     await userEvent.click(screen.getByRole("button", { name: "创建" }));
 
     const roboticsButton = await screen.findByRole("button", { name: "Robotics 0" });
-    await userEvent.click(screen.getByRole("button", { name: "移动文献：Vocabulary source" }));
+    await userEvent.click(screen.getByRole("button", { name: "更多操作：Vocabulary source" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "移动到文件夹" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Robotics" }));
 
     await waitFor(async () => {

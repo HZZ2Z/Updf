@@ -14,11 +14,17 @@ describe("ReaderToolbar", () => {
         pageCount={28}
         mode="continuous"
         zoom={1.1}
+        leftPanelOpen
+        inspectorOpen={false}
+        focusMode={false}
         onModeChange={onModeChange}
         onPageChange={vi.fn()}
         onZoomChange={vi.fn()}
         onFit={vi.fn()}
         onExport={vi.fn()}
+        onToggleLeftPanel={vi.fn()}
+        onToggleInspector={vi.fn()}
+        onToggleFocusMode={vi.fn()}
       />,
     );
 
@@ -37,11 +43,17 @@ describe("ReaderToolbar", () => {
         pageCount={10}
         mode="continuous"
         zoom={0.5}
+        leftPanelOpen
+        inspectorOpen={false}
+        focusMode={false}
         onModeChange={vi.fn()}
         onPageChange={vi.fn()}
         onZoomChange={onZoomChange}
         onFit={vi.fn()}
         onExport={vi.fn()}
+        onToggleLeftPanel={vi.fn()}
+        onToggleInspector={vi.fn()}
+        onToggleFocusMode={vi.fn()}
       />,
     );
 
@@ -56,14 +68,59 @@ describe("ReaderToolbar", () => {
         pageCount={10}
         mode="book"
         zoom={3}
+        leftPanelOpen
+        inspectorOpen={false}
+        focusMode={false}
         onModeChange={vi.fn()}
         onPageChange={vi.fn()}
         onZoomChange={onZoomChange}
         onFit={vi.fn()}
         onExport={vi.fn()}
+        onToggleLeftPanel={vi.fn()}
+        onToggleInspector={vi.fn()}
+        onToggleFocusMode={vi.fn()}
       />,
     );
     expect(screen.getByRole("button", { name: "放大" })).toBeDisabled();
     expect(screen.getByText("300%")).toBeInTheDocument();
+  });
+
+  it("controls the navigation, reading records, and focus layout", async () => {
+    const onToggleLeftPanel = vi.fn();
+    const onToggleInspector = vi.fn();
+    const onToggleFocusMode = vi.fn();
+    render(
+      <ReaderToolbar
+        title="Paper"
+        page={1}
+        pageCount={10}
+        mode="continuous"
+        zoom={1}
+        leftPanelOpen
+        inspectorOpen={false}
+        focusMode={false}
+        onModeChange={vi.fn()}
+        onPageChange={vi.fn()}
+        onZoomChange={vi.fn()}
+        onFit={vi.fn()}
+        onExport={vi.fn()}
+        onToggleLeftPanel={onToggleLeftPanel}
+        onToggleInspector={onToggleInspector}
+        onToggleFocusMode={onToggleFocusMode}
+      />,
+    );
+
+    const navigation = screen.getByRole("button", { name: "文档导航" });
+    const records = screen.getByRole("button", { name: "阅读记录" });
+    const focus = screen.getByRole("button", { name: "专注阅读" });
+    expect(navigation).toHaveAttribute("aria-pressed", "true");
+    expect(records).toHaveAttribute("aria-pressed", "false");
+
+    await userEvent.click(navigation);
+    await userEvent.click(records);
+    await userEvent.click(focus);
+    expect(onToggleLeftPanel).toHaveBeenCalledOnce();
+    expect(onToggleInspector).toHaveBeenCalledOnce();
+    expect(onToggleFocusMode).toHaveBeenCalledOnce();
   });
 });

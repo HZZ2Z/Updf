@@ -6,7 +6,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Maximize2,
   Minus,
+  Minimize2,
+  PanelLeft,
+  PanelRight,
   PanelTop,
   Plus,
   Settings,
@@ -21,11 +25,17 @@ interface ReaderToolbarProps {
   pageCount: number;
   mode: ReaderMode;
   zoom: number;
+  leftPanelOpen: boolean;
+  inspectorOpen: boolean;
+  focusMode: boolean;
   onModeChange: (mode: ReaderMode) => void;
   onPageChange: (page: number) => void;
   onZoomChange: (zoom: number) => void;
   onFit: (kind: "width" | "page") => void;
   onExport: () => void;
+  onToggleLeftPanel: () => void;
+  onToggleInspector: () => void;
+  onToggleFocusMode: () => void;
 }
 
 function clampPage(page: number, pageCount: number) {
@@ -38,11 +48,17 @@ export function ReaderToolbar({
   pageCount,
   mode,
   zoom,
+  leftPanelOpen,
+  inspectorOpen,
+  focusMode,
   onModeChange,
   onPageChange,
   onZoomChange,
   onFit,
   onExport,
+  onToggleLeftPanel,
+  onToggleInspector,
+  onToggleFocusMode,
 }: ReaderToolbarProps) {
   const [pageInput, setPageInput] = useState(String(page));
 
@@ -63,6 +79,16 @@ export function ReaderToolbar({
       <div className="toolbar-document">
         <a className="toolbar-icon-button" href="/" aria-label="返回资料库"><ArrowLeft /></a>
         <a className="toolbar-brand" href="/" aria-label="墨读首页">墨读</a>
+        <button
+          className="toolbar-icon-button toolbar-left-panel-toggle"
+          type="button"
+          aria-label="文档导航"
+          aria-pressed={leftPanelOpen}
+          title={leftPanelOpen ? "收起文档导航" : "展开文档导航"}
+          onClick={onToggleLeftPanel}
+        >
+          <PanelLeft />
+        </button>
         <span className="toolbar-title" title={title}>{title}</span>
       </div>
 
@@ -123,7 +149,27 @@ export function ReaderToolbar({
       </div>
 
       <div className="toolbar-actions">
-        <button className="toolbar-icon-button" type="button" aria-label="导出阅读记录" onClick={onExport}><Download /></button>
+        <button
+          className="toolbar-icon-button"
+          type="button"
+          aria-label="阅读记录"
+          aria-pressed={inspectorOpen}
+          title={inspectorOpen ? "收起阅读记录" : "展开阅读记录"}
+          onClick={onToggleInspector}
+        >
+          <PanelRight />
+        </button>
+        <button
+          className="toolbar-icon-button toolbar-focus-button"
+          type="button"
+          aria-label={focusMode ? "退出专注阅读" : "专注阅读"}
+          aria-pressed={focusMode}
+          title={focusMode ? "退出专注阅读（Esc）" : "专注阅读"}
+          onClick={onToggleFocusMode}
+        >
+          {focusMode ? <Minimize2 /> : <Maximize2 />}
+        </button>
+        <button className="toolbar-icon-button toolbar-export-button" type="button" aria-label="导出阅读记录" onClick={onExport}><Download /></button>
         <a className="toolbar-icon-button" href="/settings" aria-label="设置"><Settings /></a>
       </div>
     </header>

@@ -3,6 +3,7 @@
 import {
   ArrowRight,
   BookOpen,
+  ChevronLeft,
   Download,
   FileText,
   FileUp,
@@ -11,7 +12,6 @@ import {
   FolderInput,
   FolderPlus,
   HardDrive,
-  Import,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -101,6 +101,7 @@ export function LibraryScreen({
   const [exporting, setExporting] = useState(false);
   const [activeFolder, setActiveFolder] = useState<"all" | "unfiled" | string>("all");
   const [managedFolderId, setManagedFolderId] = useState<string>();
+  const [documentActionsId, setDocumentActionsId] = useState<string>();
   const [moveDocumentId, setMoveDocumentId] = useState<string>();
   const [folderDialog, setFolderDialog] = useState<{ mode: "create" | "rename"; folder?: LibraryFolderView }>();
   const [folderNameDraft, setFolderNameDraft] = useState("");
@@ -178,22 +179,13 @@ export function LibraryScreen({
             <h1>文献资料库</h1>
             <p>把知识留在本地，把阅读变成积累</p>
           </div>
-          <div className="library-heading-actions">
-            {onImportBundle ? (
+          {onImportBundle ? (
+            <div className="library-heading-actions">
               <button className="secondary-button" type="button" onClick={() => bundleInputRef.current?.click()}>
                 <FileUp aria-hidden="true" />导入笔记包
               </button>
-            ) : null}
-            <button
-              className="primary-button"
-              type="button"
-              disabled={importing}
-              onClick={() => inputRef.current?.click()}
-            >
-              <Import aria-hidden="true" />
-              {importing ? "正在导入…" : "导入 PDF"}
-            </button>
-          </div>
+            </div>
+          ) : null}
         </section>
 
         <input
@@ -238,8 +230,8 @@ export function LibraryScreen({
           onDrop={handleDrop}
         >
           <UploadCloud aria-hidden="true" />
-          <strong>拖放 PDF 到这里</strong>
-          <span>文件仅存储在这台设备上</span>
+          <strong>{importing ? "正在导入 PDF…" : "拖放 PDF 到这里，或点击选择文件"}</strong>
+          <span>{importing ? "正在写入本地资料库" : "支持一次选择多份文件 · 文件仅存储在这台设备上"}</span>
         </div>
 
         {message ? <div className="library-message" role="status">{message}</div> : null}
@@ -451,7 +443,7 @@ export function LibraryScreen({
                 const hasActions = Boolean(onTogglePin || onDelete || onMoveDocument);
                 return (
                   <article
-                    className={`document-row ${document.pinnedAt ? "is-pinned" : ""} ${hasActions ? "has-actions" : ""} ${moveDocumentId === document.id ? "has-open-folder-menu" : ""}`}
+                    className={`document-row ${document.pinnedAt ? "is-pinned" : ""} ${hasActions ? "has-actions" : ""} ${documentActionsId === document.id ? "has-open-folder-menu" : ""}`}
                     key={document.id}
                   >
                     <a className="document-row-link" href={`/reader/${document.id}`}>
@@ -484,25 +476,46 @@ export function LibraryScreen({
                     </a>
                     {hasActions ? (
                       <div className="document-row-actions">
-                        {onMoveDocument ? (
-                          <>
-                            <button
-                              type="button"
-                              aria-label={`移动文献：${document.title}`}
-                              title="移动到文件夹"
-                              onClick={() => setMoveDocumentId((current) => current === document.id ? undefined : document.id)}
-                            >
-                              <FolderInput aria-hidden="true" />
-                            </button>
+                        {onTogglePin ? (
+                          <button
+                            className={document.pinnedAt ? "is-active" : ""}
+                            type="button"
+                            aria-label={`${document.pinnedAt ? "取消置顶" : "置顶文献"}：${document.title}`}
+                            title={document.pinnedAt ? "取消置顶" : "置顶文献"}
+                            onClick={() => void onTogglePin(document.id, !document.pinnedAt)}
+                          >
+                            <Pin aria-hidden="true" />
+                          </button>
+                        ) : null}
+                        {onMoveDocument || onDelete ? (
+                          <button
+                            type="button"
+                            aria-label={`更多操作：${document.title}`}
+                            aria-expanded={documentActionsId === document.id}
+                            title="更多操作"
+                            onClick={() => {
+                              setMoveDocumentId(undefined);
+                              setDocumentActionsId((current) => current === document.id ? undefined : document.id);
+                            }}
+                          >
+                            <MoreHorizontal aria-hidden="true" />
+                          </button>
+                        ) : null}
+                        {documentActionsId === document.id ? (
+                          <div className="document-folder-menu" role="menu">
                             {moveDocumentId === document.id ? (
-                              <div className="document-folder-menu" role="menu">
+                              <>
+                                <button type="button" role="menuitem" onClick={() => setMoveDocumentId(undefined)}>
+                                  <ChevronLeft aria-hidden="true" />返回
+                                </button>
                                 <button
                                   className={!document.folderId ? "is-current" : ""}
                                   type="button"
                                   role="menuitem"
                                   onClick={() => {
                                     setMoveDocumentId(undefined);
-                                    void onMoveDocument(document.id, undefined);
+                                    setDocumentActionsId(undefined);
+                                    void onMoveDocument?.(document.id, undefined);
                                   }}
                                 >
                                   未分类
@@ -515,37 +528,37 @@ export function LibraryScreen({
                                     key={folder.id}
                                     onClick={() => {
                                       setMoveDocumentId(undefined);
-                                      void onMoveDocument(document.id, folder.id);
+                                      setDocumentActionsId(undefined);
+                                      void onMoveDocument?.(document.id, folder.id);
                                     }}
                                   >
                                     {folder.name}
                                   </button>
                                 ))}
-                              </div>
-                            ) : null}
-                          </>
-                        ) : null}
-                        {onTogglePin ? (
-                          <button
-                            className={document.pinnedAt ? "is-active" : ""}
-                            type="button"
-                            aria-label={`${document.pinnedAt ? "取消置顶" : "置顶文献"}：${document.title}`}
-                            title={document.pinnedAt ? "取消置顶" : "置顶文献"}
-                            onClick={() => void onTogglePin(document.id, !document.pinnedAt)}
-                          >
-                            <Pin aria-hidden="true" />
-                          </button>
-                        ) : null}
-                        {onDelete ? (
-                          <button
-                            className="is-danger"
-                            type="button"
-                            aria-label={`删除文献：${document.title}`}
-                            title="删除文献"
-                            onClick={() => setDeleteCandidate(document)}
-                          >
-                            <Trash2 aria-hidden="true" />
-                          </button>
+                              </>
+                            ) : (
+                              <>
+                                {onMoveDocument ? (
+                                  <button type="button" role="menuitem" onClick={() => setMoveDocumentId(document.id)}>
+                                    <FolderInput aria-hidden="true" />移动到文件夹
+                                  </button>
+                                ) : null}
+                                {onDelete ? (
+                                  <button
+                                    className="is-danger"
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setDocumentActionsId(undefined);
+                                      setDeleteCandidate(document);
+                                    }}
+                                  >
+                                    <Trash2 aria-hidden="true" />删除文献
+                                  </button>
+                                ) : null}
+                              </>
+                            )}
+                          </div>
                         ) : null}
                       </div>
                     ) : null}

@@ -51,14 +51,14 @@ describe("Linux desktop packaging", () => {
     )).resolves.toBe("cmap");
   });
 
-  it("keeps Linux package identity and build scripts at version 1.0.0", async () => {
+  it("keeps Linux package identity and build scripts at version 1.1.0", async () => {
     const packageJson = JSON.parse(await readFile(
       join(process.cwd(), "package.json"),
       "utf8",
     ));
 
     expect(packageJson).toMatchObject({
-      version: "1.0.0",
+      version: "1.1.0",
       main: "desktop/main.mjs",
       desktopName: "com.hzz2z.modureader",
       homepage: "https://github.com/HZZ2Z/Updf",
