@@ -27,6 +27,8 @@ import { importPdfIntoLibrary } from "@/lib/pdf-library-import";
 import { createExportBundle, parsePortableArchive } from "@/lib/portable-data";
 import type { DocumentRecord, TranslationPayload } from "@/lib/types";
 
+const DESKTOP_DEFAULT_PROMPT_KEY = "modu-desktop-default-prompt-dismissed-v1";
+
 function safeFileName(title: string) {
   return title.replace(/[\\/:*?"<>|]/g, "-").slice(0, 80) || "modu-notes";
 }
@@ -85,6 +87,8 @@ export function LibraryClient() {
   const [pendingBundles, setPendingBundles] = useState<PendingBundleView[]>([]);
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState("");
+  const [showDesktopWelcome, setShowDesktopWelcome] = useState(false);
+  const [settingPdfDefault, setSettingPdfDefault] = useState(false);
 
   const refresh = useCallback(async () => {
     const database = getReaderDatabase();
@@ -114,6 +118,52 @@ export function LibraryClient() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const desktop = window.moduDesktop;
+    if (!desktop) return;
+
+    let active = true;
+    void desktop.getPdfDefaultAppStatus()
+      .then((status) => {
+        if (!active || !status.available || status.isDefault) return;
+        if (window.localStorage.getItem(DESKTOP_DEFAULT_PROMPT_KEY) === "true") return;
+        setShowDesktopWelcome(true);
+      })
+      .catch(() => {
+        // The desktop settings page remains available if the host cannot query xdg-mime.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleDismissDesktopWelcome = useCallback(() => {
+    window.localStorage.setItem(DESKTOP_DEFAULT_PROMPT_KEY, "true");
+    setShowDesktopWelcome(false);
+  }, []);
+
+  const handleSetPdfDefault = useCallback(async () => {
+    const desktop = window.moduDesktop;
+    if (!desktop) return;
+
+    setSettingPdfDefault(true);
+    try {
+      const status = await desktop.setAsPdfDefaultApp();
+      if (!status.isDefault) {
+        setMessage(status.error ?? "暂时无法设为默认 PDF 应用，请稍后在设置中重试。");
+        return;
+      }
+      window.localStorage.setItem(DESKTOP_DEFAULT_PROMPT_KEY, "true");
+      setShowDesktopWelcome(false);
+      setMessage("墨读已设为 PDF 默认应用。以后双击 PDF 即可直接阅读。");
+    } catch (error) {
+      setMessage(errorMessage(error));
+    } finally {
+      setSettingPdfDefault(false);
+    }
+  }, []);
 
   const handlePdfImport = useCallback(async (files: File[]) => {
     setImporting(true);
@@ -286,21 +336,62 @@ export function LibraryClient() {
   }, [refresh]);
 
   return (
-    <LibraryScreen
-      documents={documents}
-      folders={folders}
-      pendingBundles={pendingBundles}
-      importing={importing}
-      message={message}
-      onImport={handlePdfImport}
-      onImportBundle={handleBundleImport}
-      onTogglePin={handleTogglePin}
-      onCreateFolder={handleCreateFolder}
-      onRenameFolder={handleRenameFolder}
-      onDeleteFolder={handleDeleteFolder}
-      onMoveDocument={handleMoveDocument}
-      onExportBeforeDelete={handleExportBeforeDelete}
-      onDelete={handleDelete}
-    />
+    <>
+      <LibraryScreen
+        documents={documents}
+        folders={folders}
+        pendingBundles={pendingBundles}
+        importing={importing}
+        message={message}
+        onImport={handlePdfImport}
+        onImportBundle={handleBundleImport}
+        onTogglePin={handleTogglePin}
+        onCreateFolder={handleCreateFolder}
+        onRenameFolder={handleRenameFolder}
+        onDeleteFolder={handleDeleteFolder}
+        onMoveDocument={handleMoveDocument}
+        onExportBeforeDelete={handleExportBeforeDelete}
+        onDelete={handleDelete}
+      />
+
+      {showDesktopWelcome ? (
+        <div className="dialog-backdrop">
+          <section
+            className="delete-document-dialog desktop-welcome-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="desktop-welcome-title"
+          >
+            <div className="desktop-welcome-icon" aria-hidden="true">PDF</div>
+            <h2 id="desktop-welcome-title">墨读已准备好</h2>
+            <p>
+              客户端已包含完整运行环境，无需另外安装 Node.js 或 npm，下载后即可使用。
+            </p>
+            <div className="desktop-welcome-summary">
+              <span>PDF 与阅读记录默认保存在本机</span>
+              <span>设为默认应用后，双击 PDF 可直接用墨读打开</span>
+            </div>
+            <footer>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={settingPdfDefault}
+                onClick={handleDismissDesktopWelcome}
+              >
+                以后再说
+              </button>
+              <button
+                className="primary-button"
+                type="button"
+                disabled={settingPdfDefault}
+                onClick={() => void handleSetPdfDefault()}
+              >
+                {settingPdfDefault ? "正在设置…" : "设为默认 PDF 应用"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
+    </>
   );
 }

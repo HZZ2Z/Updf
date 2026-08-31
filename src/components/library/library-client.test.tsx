@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LibraryClient } from "@/components/library/library-client";
 import { clearReaderDatabase, getReaderDatabase } from "@/lib/database";
@@ -83,6 +83,7 @@ const vocabulary: VocabularyEntry = {
 
 describe("LibraryClient document management", () => {
   beforeEach(async () => {
+    window.localStorage.clear();
     const database = getReaderDatabase();
     await clearReaderDatabase(database);
     await database.documents.put(documentRecord);
@@ -93,7 +94,56 @@ describe("LibraryClient document management", () => {
   });
 
   afterEach(async () => {
+    delete window.moduDesktop;
+    window.localStorage.clear();
     await clearReaderDatabase(getReaderDatabase());
+  });
+
+  it("offers to become the PDF default on the first desktop launch", async () => {
+    const setAsPdfDefaultApp = vi.fn().mockResolvedValue({
+      available: true,
+      isDefault: true,
+      defaultApplication: "com.hzz2z.modureader.desktop",
+    });
+    window.moduDesktop = {
+      isDesktop: true,
+      consumeLaunchPdf: vi.fn(),
+      onOpenPdfAvailable: () => () => {},
+      getPdfDefaultAppStatus: vi.fn().mockResolvedValue({
+        available: true,
+        isDefault: false,
+        defaultApplication: "org.gnome.Evince.desktop",
+      }),
+      setAsPdfDefaultApp,
+    };
+
+    render(<LibraryClient />);
+
+    const dialog = await screen.findByRole("dialog", { name: "墨读已准备好" });
+    expect(dialog).toHaveTextContent("无需另外安装 Node.js 或 npm");
+    await userEvent.click(screen.getByRole("button", { name: "设为默认 PDF 应用" }));
+
+    expect(setAsPdfDefaultApp).toHaveBeenCalledOnce();
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(screen.getByRole("status")).toHaveTextContent("墨读已设为 PDF 默认应用");
+  });
+
+  it("does not repeat the first-launch prompt after the user dismisses it", async () => {
+    window.moduDesktop = {
+      isDesktop: true,
+      consumeLaunchPdf: vi.fn(),
+      onOpenPdfAvailable: () => () => {},
+      getPdfDefaultAppStatus: vi.fn().mockResolvedValue({ available: true, isDefault: false }),
+      setAsPdfDefaultApp: vi.fn(),
+    };
+    const first = render(<LibraryClient />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "以后再说" }));
+    first.unmount();
+    render(<LibraryClient />);
+
+    await waitFor(() => expect(window.moduDesktop?.getPdfDefaultAppStatus).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("dialog", { name: "墨读已准备好" })).not.toBeInTheDocument();
   });
 
   it("removes the document records but retains its vocabulary for later review", async () => {
