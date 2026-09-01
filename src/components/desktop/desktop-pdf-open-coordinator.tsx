@@ -6,6 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { readDesktopReaderResumePath } from "@/lib/reader-session";
 import type { DesktopPdfFile } from "@/types/desktop";
 
+const DESKTOP_STARTUP_RESUME_KEY = "modu-desktop-startup-resume-consumed";
+
 function toBrowserFile(incoming: DesktopPdfFile) {
   const buffer = new ArrayBuffer(incoming.bytes.byteLength);
   new Uint8Array(buffer).set(incoming.bytes);
@@ -54,9 +56,15 @@ export function DesktopPdfOpenCoordinator() {
       draining.current = false;
       if (!resumeChecked.current) {
         resumeChecked.current = true;
-        const resumePath = readDesktopReaderResumePath();
-        if (!openedReader && window.location.pathname === "/" && resumePath) {
-          router.replace(resumePath);
+        const startupResumeConsumed = window.sessionStorage.getItem(
+          DESKTOP_STARTUP_RESUME_KEY,
+        ) === "1";
+        window.sessionStorage.setItem(DESKTOP_STARTUP_RESUME_KEY, "1");
+        if (!startupResumeConsumed) {
+          const resumePath = readDesktopReaderResumePath();
+          if (!openedReader && window.location.pathname === "/" && resumePath) {
+            router.replace(resumePath);
+          }
         }
       }
     }

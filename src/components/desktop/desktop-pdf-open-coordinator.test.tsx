@@ -24,6 +24,7 @@ describe("DesktopPdfOpenCoordinator", () => {
     replace.mockReset();
     importPdfMock.mockReset();
     window.localStorage.clear();
+    window.sessionStorage.clear();
     window.history.replaceState({}, "", "/");
   });
 
@@ -32,6 +33,7 @@ describe("DesktopPdfOpenCoordinator", () => {
   });
 
   it("consumes a launch PDF and routes to its existing reader record", async () => {
+    window.localStorage.setItem("modu-last-reader-path", "/reader/previous-document");
     const consumeLaunchPdf = vi
       .fn()
       .mockResolvedValueOnce({
@@ -57,6 +59,7 @@ describe("DesktopPdfOpenCoordinator", () => {
     render(<DesktopPdfOpenCoordinator />);
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/reader/sha"));
+    expect(replace).not.toHaveBeenCalled();
     expect(await screen.findByRole("status")).toHaveTextContent("正在打开 Robotics");
     expect(consumeLaunchPdf).toHaveBeenCalledTimes(2);
   });
@@ -81,6 +84,26 @@ describe("DesktopPdfOpenCoordinator", () => {
     render(<DesktopPdfOpenCoordinator />);
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/reader/robotics-sha"));
+    expect(push).not.toHaveBeenCalled();
+    expect(window.sessionStorage.getItem("modu-desktop-startup-resume-consumed")).toBe("1");
+  });
+
+  it("stays on the library when returning there later in the same desktop window", async () => {
+    window.localStorage.setItem("modu-last-reader-path", "/reader/robotics-sha");
+    window.sessionStorage.setItem("modu-desktop-startup-resume-consumed", "1");
+    const consumeLaunchPdf = vi.fn().mockResolvedValue(null);
+    window.moduDesktop = {
+      isDesktop: true,
+      consumeLaunchPdf,
+      onOpenPdfAvailable: () => () => {},
+      getPdfDefaultAppStatus: vi.fn(),
+      setAsPdfDefaultApp: vi.fn(),
+    };
+
+    render(<DesktopPdfOpenCoordinator />);
+
+    await waitFor(() => expect(consumeLaunchPdf).toHaveBeenCalledOnce());
+    expect(replace).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
   });
 
