@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { readDesktopReaderResumePath } from "@/lib/reader-session";
 import type { DesktopPdfFile } from "@/types/desktop";
 
 function toBrowserFile(incoming: DesktopPdfFile) {
@@ -15,6 +16,7 @@ export function DesktopPdfOpenCoordinator() {
   const router = useRouter();
   const draining = useRef(false);
   const drainRequested = useRef(false);
+  const resumeChecked = useRef(false);
   const [message, setMessage] = useState("");
 
   const drain = useCallback(async () => {
@@ -23,6 +25,7 @@ export function DesktopPdfOpenCoordinator() {
     drainRequested.current = true;
     if (draining.current) return;
     draining.current = true;
+    let openedReader = false;
 
     try {
       do {
@@ -41,6 +44,7 @@ export function DesktopPdfOpenCoordinator() {
             const result = await importPdfIntoLibrary(toBrowserFile(incoming));
             setMessage(`正在打开 ${result.title}`);
             router.push(`/reader/${encodeURIComponent(result.documentId)}`);
+            openedReader = true;
           } catch (error) {
             setMessage(error instanceof Error ? error.message : "PDF 导入失败");
           }
@@ -48,6 +52,13 @@ export function DesktopPdfOpenCoordinator() {
       } while (drainRequested.current);
     } finally {
       draining.current = false;
+      if (!resumeChecked.current) {
+        resumeChecked.current = true;
+        const resumePath = readDesktopReaderResumePath();
+        if (!openedReader && window.location.pathname === "/" && resumePath) {
+          router.replace(resumePath);
+        }
+      }
     }
   }, [router]);
 

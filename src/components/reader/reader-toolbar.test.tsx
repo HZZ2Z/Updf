@@ -99,6 +99,7 @@ describe("ReaderToolbar", () => {
         leftPanelOpen
         inspectorOpen={false}
         focusMode={false}
+        settingsHref="/settings?returnTo=%2Freader%2Fpaper"
         onModeChange={vi.fn()}
         onPageChange={vi.fn()}
         onZoomChange={vi.fn()}
@@ -115,6 +116,10 @@ describe("ReaderToolbar", () => {
     const focus = screen.getByRole("button", { name: "专注阅读" });
     expect(navigation).toHaveAttribute("aria-pressed", "true");
     expect(records).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("link", { name: "设置" })).toHaveAttribute(
+      "href",
+      "/settings?returnTo=%2Freader%2Fpaper",
+    );
 
     await userEvent.click(navigation);
     await userEvent.click(records);

@@ -14,7 +14,7 @@ import {
   RefreshCw,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   AnnotationRecord,
@@ -63,6 +63,7 @@ export function InspectorPanel({
   const [activeTranslationMarkId, setActiveTranslationMarkId] = useState(selectedTranslationMarkId);
   const [translationHistoryExpanded, setTranslationHistoryExpanded] = useState(false);
   const [translationActionsMarkId, setTranslationActionsMarkId] = useState<string>();
+  const translationActionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!selectedTranslationMarkId) return;
@@ -77,6 +78,17 @@ export function InspectorPanel({
     setTab("notes");
     setExpandedNotes((current) => new Set(current).add(selectedAnnotationId));
   }, [selectedAnnotationId]);
+
+  useEffect(() => {
+    if (!translationActionsMarkId) return;
+    const closeActions = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && translationActionsRef.current?.contains(target)) return;
+      setTranslationActionsMarkId(undefined);
+    };
+    document.addEventListener("pointerdown", closeActions);
+    return () => document.removeEventListener("pointerdown", closeActions);
+  }, [translationActionsMarkId]);
 
   const sortedTranslations = useMemo(
     () => [...translations].sort((a, b) => b.mark.updatedAt.localeCompare(a.mark.updatedAt)),
@@ -111,7 +123,7 @@ export function InspectorPanel({
                     <p className="source-text">{payload.originalText}</p>
                     <div className="inspector-label">译文</div>
                     <p className="translated-text">{payload.translatedText}</p>
-                    <div className="translation-more">
+                    <div ref={translationActionsRef} className="translation-more">
                       <button
                         type="button"
                         aria-label="更多翻译操作"

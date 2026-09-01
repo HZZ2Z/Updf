@@ -142,3 +142,6 @@ export function createPriorityTaskQueue(concurrency: number) {
 
 export const pdfRenderQueue = createPriorityTaskQueue(2);
 export const pdfTextQueue = createPriorityTaskQueue(2);
+// Thumbnails are intentionally isolated and serialized so they never occupy
+// the two slots reserved for the reading surface.
+export const pdfThumbnailQueue = createPriorityTaskQueue(1);

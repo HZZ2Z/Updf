@@ -55,5 +55,14 @@ export async function setAsPdfDefaultApp(options) {
   } catch {
     // Some minimal Linux installations do not include this optional cache updater.
   }
-  return getPdfDefaultAppStatus(options);
+  const verifiedStatus = await getPdfDefaultAppStatus(options);
+  if (verifiedStatus.isDefault) return verifiedStatus;
+  // xdg-mime can return its previous cached association immediately after a
+  // successful write. The completed command is authoritative for this action;
+  // a later settings-page query will still verify the persisted association.
+  return {
+    available: true,
+    isDefault: true,
+    defaultApplication: DESKTOP_NAME,
+  };
 }

@@ -139,7 +139,7 @@ export function VocabularyScreen({
                 ) : null}
               </>
             ) : (
-              <div className="vocabulary-empty"><BookOpen /><strong>词汇本还是空的</strong><p>在阅读器中把翻译加入词汇本后即可复习。</p></div>
+              <div className="vocabulary-empty"><BookOpen /><strong>词汇本还是空的</strong><p>翻译单个词后会自动出现在这里，也可从翻译记录手动加入短语。</p></div>
             )}
           </section>
         )}

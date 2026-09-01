@@ -145,6 +145,9 @@ export function registerDesktopIpc({
   checkForUpdates,
   downloadUpdate,
   installUpdate,
+  getTranslationApiKey,
+  saveTranslationApiKey,
+  clearTranslationApiKey,
   onOpenError = () => {},
 }) {
   const assertTrusted = (event) => {
@@ -188,5 +191,17 @@ export function registerDesktopIpc({
   ipcMain.handle("desktop:install-update", async (event) => {
     assertTrusted(event);
     return installUpdate();
+  });
+  ipcMain.handle("desktop:get-translation-api-key", async (event, provider) => {
+    assertTrusted(event);
+    return getTranslationApiKey(provider);
+  });
+  ipcMain.handle("desktop:save-translation-api-key", async (event, provider, value) => {
+    assertTrusted(event);
+    return saveTranslationApiKey(provider, value);
+  });
+  ipcMain.handle("desktop:clear-translation-api-key", async (event, provider) => {
+    assertTrusted(event);
+    return clearTranslationApiKey(provider);
   });
 }

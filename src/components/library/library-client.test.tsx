@@ -200,7 +200,7 @@ describe("LibraryClient document management", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "管理文件夹：Robotics I" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "删除文件夹" }));
-    expect(screen.getByRole("dialog", { name: "删除文件夹" })).toHaveTextContent("1 份文献将移至未分类");
+    expect(screen.getByRole("dialog", { name: "删除文件夹" })).toHaveTextContent("1 份文献仍会保留在资料库");
     await userEvent.click(screen.getByRole("button", { name: "确认删除文件夹" }));
 
     await waitFor(async () => {

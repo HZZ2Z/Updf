@@ -17,6 +17,9 @@ const bridge = Object.freeze({
   checkForUpdates: () => ipcRenderer.invoke("desktop:check-for-updates"),
   downloadUpdate: () => ipcRenderer.invoke("desktop:download-update"),
   installUpdate: () => ipcRenderer.invoke("desktop:install-update"),
+  getTranslationApiKey: (provider) => ipcRenderer.invoke("desktop:get-translation-api-key", provider),
+  saveTranslationApiKey: (provider, value) => ipcRenderer.invoke("desktop:save-translation-api-key", provider, value),
+  clearTranslationApiKey: (provider) => ipcRenderer.invoke("desktop:clear-translation-api-key", provider),
   onUpdateState: (listener) => {
     if (typeof listener !== "function") {
       throw new TypeError("更新状态监听器必须是函数");

@@ -151,6 +151,14 @@ export function normalizeTranslationText(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLocaleLowerCase();
 }
 
+export function isVocabularyCandidate(text: string): boolean {
+  const normalized = text.normalize("NFKC").trim();
+  if (!normalized || Array.from(normalized).length > 80 || /\s/u.test(normalized)) {
+    return false;
+  }
+  return /^[\p{L}\p{M}\p{N}]+(?:[.'’_+\-][\p{L}\p{M}\p{N}]+)*$/u.test(normalized);
+}
+
 export async function buildTranslationCacheKey(
   text: string,
   targetLanguage: string,

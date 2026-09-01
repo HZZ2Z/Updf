@@ -9,6 +9,7 @@ describe("SettingsScreen", () => {
     const onTranslationProviderChange = vi.fn();
     render(
       <SettingsScreen
+        backHref="/reader/robotics"
         hasApiKey
         hasGoogleApiKey
         translationProvider="deepseek"
@@ -43,6 +44,7 @@ describe("SettingsScreen", () => {
     expect(screen.getByText("DeepSeek 2 次")).toBeInTheDocument();
     expect(screen.getByText("输入 120 Tokens")).toBeInTheDocument();
     expect(screen.getByText("本地缓存复用 4 次")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "返回阅读" })).toHaveAttribute("href", "/reader/robotics");
   });
 
   it("changes the default translation provider only from settings", async () => {
@@ -71,7 +73,7 @@ describe("SettingsScreen", () => {
     expect(onTranslationProviderChange).toHaveBeenCalledWith("google");
   });
 
-  it("saves a Google API key only through the session callback", async () => {
+  it("saves a Google API key only through the persistence callback", async () => {
     const onSaveGoogleApiKey = vi.fn();
     render(
       <SettingsScreen
@@ -100,7 +102,7 @@ describe("SettingsScreen", () => {
     expect(onSaveGoogleApiKey).toHaveBeenCalledWith("google-user-key");
   });
 
-  it("saves a user-owned key only through the session callback", async () => {
+  it("saves a user-owned key only through the persistence callback", async () => {
     const onSaveApiKey = vi.fn();
     render(
       <SettingsScreen
@@ -125,7 +127,7 @@ describe("SettingsScreen", () => {
     const input = screen.getByLabelText("DeepSeek API Key");
     expect(input).toHaveAttribute("type", "password");
     await userEvent.type(input, "sk-user-owned");
-    await userEvent.click(screen.getByRole("button", { name: "保存到当前会话" }));
+    await userEvent.click(screen.getByRole("button", { name: "保存到本机" }));
     expect(onSaveApiKey).toHaveBeenCalledWith("sk-user-owned");
   });
 
@@ -211,6 +213,9 @@ describe("SettingsScreen", () => {
     );
 
     expect(screen.getByRole("heading", { name: "PDF 默认应用" })).toBeInTheDocument();
+    expect(screen.queryByText("密钥、翻译偏好和本地阅读数据都由你掌控。")).not.toBeInTheDocument();
+    expect(screen.queryByText("阅读时直接使用这里选择的服务，不需要每次重复切换。")).not.toBeInTheDocument();
+    expect(screen.queryByText("从文件管理器双击 PDF 时直接使用墨读打开。")).not.toBeInTheDocument();
     expect(onSetPdfDefaultApp).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "设为 PDF 默认应用" }));
     expect(onSetPdfDefaultApp).toHaveBeenCalledOnce();

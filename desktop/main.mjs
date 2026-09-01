@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { copyFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,8 +11,11 @@ import {
   dialog,
   ipcMain,
   Menu,
+  safeStorage,
   shell,
 } from "electron";
+
+import { createCredentialStore } from "./credential-store.mjs";
 
 import {
   extractPdfPaths,
@@ -44,6 +47,7 @@ let mainWindow;
 let serverProcess;
 let isQuitting = false;
 let updateManager;
+let credentialStore;
 
 function defaultIntegrationOptions() {
   return {
@@ -101,6 +105,13 @@ async function openExternalHttps(value) {
 
 async function startApplication() {
   removeApplicationMenu(Menu);
+  credentialStore = createCredentialStore({
+    safeStorage,
+    filePath: join(app.getPath("userData"), "credentials.v1.json"),
+    readFile,
+    writeFile,
+    mkdir,
+  });
   updateManager = createUpdateManager({
     updater: getAutoUpdater(),
     currentVersion: app.getVersion(),
@@ -143,6 +154,9 @@ async function startApplication() {
     checkForUpdates: () => updateManager.check(),
     downloadUpdate: () => updateManager.download(),
     installUpdate: () => updateManager.install(),
+    getTranslationApiKey: (provider) => credentialStore.get(provider),
+    saveTranslationApiKey: (provider, value) => credentialStore.set(provider, value),
+    clearTranslationApiKey: (provider) => credentialStore.clear(provider),
     onOpenError: (path, error) => {
       void dialog.showMessageBox(mainWindow, {
         type: "error",

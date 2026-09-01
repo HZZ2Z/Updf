@@ -23,7 +23,7 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
 
 import { compareManualOrder, mergeVisibleOrder, moveOrderedItem } from "@/lib/library-order";
 
@@ -113,7 +113,7 @@ export function LibraryScreen({
   const [deleteCandidate, setDeleteCandidate] = useState<LibraryDocumentView>();
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [activeFolder, setActiveFolder] = useState<"all" | "unfiled" | string>("all");
+  const [activeFolder, setActiveFolder] = useState<string>("all");
   const [managedFolderId, setManagedFolderId] = useState<string>();
   const [documentActionsId, setDocumentActionsId] = useState<string>();
   const [moveDocumentId, setMoveDocumentId] = useState<string>();
@@ -134,20 +134,13 @@ export function LibraryScreen({
     () => [...folders].sort(compareManualOrder),
     [folders],
   );
-  const unfiledCount = useMemo(
-    () => documents.filter((document) => !document.folderId).length,
-    [documents],
-  );
   const visibleDocuments = useMemo(() => {
     if (activeFolder === "all") return sortedDocuments;
-    if (activeFolder === "unfiled") return sortedDocuments.filter((document) => !document.folderId);
     return sortedDocuments.filter((document) => document.folderId === activeFolder);
   }, [activeFolder, sortedDocuments]);
   const activeFolderName = activeFolder === "all"
     ? "全部文献"
-    : activeFolder === "unfiled"
-      ? "未分类"
-      : folders.find((folder) => folder.id === activeFolder)?.name || "全部文献";
+    : folders.find((folder) => folder.id === activeFolder)?.name || "全部文献";
   const activeFolderView = folders.find((folder) => folder.id === activeFolder);
   const folderFeaturesEnabled = folders.length > 0 || Boolean(
     onCreateFolder || onRenameFolder || onDeleteFolder || onMoveDocument,
@@ -158,6 +151,31 @@ export function LibraryScreen({
     setDocumentDropTargetId(undefined);
     setFolderDropTargetId(undefined);
   };
+
+  useEffect(() => {
+    if (!managedFolderId && !documentActionsId && !mobileFolderMenuOpen) return;
+    const closeOpenMenus = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-library-menu-control]")) return;
+      setManagedFolderId(undefined);
+      setDocumentActionsId(undefined);
+      setMoveDocumentId(undefined);
+      setMobileFolderMenuOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setManagedFolderId(undefined);
+      setDocumentActionsId(undefined);
+      setMoveDocumentId(undefined);
+      setMobileFolderMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOpenMenus);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOpenMenus);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [documentActionsId, managedFolderId, mobileFolderMenuOpen]);
 
   const reorderVisibleDocuments = (targetId: string) => {
     if (!draggedDocumentId || !onReorderDocuments) return;
@@ -292,7 +310,6 @@ export function LibraryScreen({
                   }}
                 >
                   <option value="all">全部文献（{documents.length}）</option>
-                  <option value="unfiled">未分类（{unfiledCount}）</option>
                   {sortedFolders.map((folder) => (
                     <option key={folder.id} value={folder.id}>{folder.name}（{folder.documentCount}）</option>
                   ))}
@@ -317,6 +334,7 @@ export function LibraryScreen({
                   <button
                     className="folder-mobile-action"
                     type="button"
+                    data-library-menu-control
                     aria-label="管理当前文件夹"
                     aria-expanded={mobileFolderMenuOpen}
                     onClick={() => setMobileFolderMenuOpen((open) => !open)}
@@ -324,7 +342,7 @@ export function LibraryScreen({
                     <MoreHorizontal aria-hidden="true" />
                   </button>
                   {mobileFolderMenuOpen ? (
-                    <div className="folder-mobile-menu" role="menu">
+                    <div className="folder-mobile-menu" role="menu" data-library-menu-control>
                       {onRenameFolder ? (
                         <button
                           type="button"
@@ -390,25 +408,6 @@ export function LibraryScreen({
                     <span>全部文献</span>
                     <b>{documents.length}</b>
                   </button>
-                  <button
-                    className={`${activeFolder === "unfiled" ? "is-active" : ""} ${folderDropTargetId === "unfiled" ? "is-drop-target" : ""}`}
-                    type="button"
-                    onClick={() => setActiveFolder("unfiled")}
-                    onDragOver={(event) => {
-                      if (!draggedDocumentId || !onMoveDocument) return;
-                      event.preventDefault();
-                      setFolderDropTargetId("unfiled");
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      if (draggedDocumentId) void onMoveDocument?.(draggedDocumentId, undefined);
-                      clearDragState();
-                    }}
-                  >
-                    <FolderInput aria-hidden="true" />
-                    <span>未分类</span>
-                    <b>{unfiledCount}</b>
-                  </button>
                   {sortedFolders.map((folder) => (
                     <div
                       className={`folder-nav-row ${folderDropTargetId === folder.id ? "is-drop-target" : ""}`}
@@ -460,6 +459,7 @@ export function LibraryScreen({
                         <button
                           className="folder-manage-button"
                           type="button"
+                          data-library-menu-control
                           aria-label={`管理文件夹：${folder.name}`}
                           title="管理文件夹"
                           onClick={() => setManagedFolderId((current) => current === folder.id ? undefined : folder.id)}
@@ -468,7 +468,7 @@ export function LibraryScreen({
                         </button>
                       ) : null}
                       {managedFolderId === folder.id ? (
-                        <div className="folder-action-menu" role="menu">
+                        <div className="folder-action-menu" role="menu" data-library-menu-control>
                           {onRenameFolder ? (
                             <button
                               type="button"
@@ -508,7 +508,6 @@ export function LibraryScreen({
             <div className="folder-document-pane">
               <div className="section-title-row">
                 <h2 id="all-documents-title">{activeFolderName} <span>{visibleDocuments.length}</span></h2>
-                <span>拖动调整顺序</span>
               </div>
 
               {documents.length === 0 ? (
@@ -544,28 +543,21 @@ export function LibraryScreen({
                       clearDragState();
                     }}
                   >
-                    {onReorderDocuments ? (
-                      <button
-                        className="document-drag-handle"
-                        type="button"
-                        draggable
-                        aria-label={`拖动排序：${document.title}`}
-                        title="拖动排序或拖到文件夹分类"
+                    <a className="document-row-link" href={`/reader/${document.id}`}>
+                      <div
+                        className={`document-cover${onReorderDocuments ? " is-draggable" : ""}`}
+                        draggable={Boolean(onReorderDocuments)}
+                        aria-label={onReorderDocuments ? `拖动排序：${document.title}` : undefined}
+                        title={onReorderDocuments ? "拖动排序或拖到文件夹分类" : undefined}
+                        style={document.coverDataUrl ? { backgroundImage: `url(${document.coverDataUrl})` } : undefined}
                         onDragStart={(event) => {
+                          if (!onReorderDocuments) return;
                           event.dataTransfer.effectAllowed = "move";
                           event.dataTransfer.setData("text/plain", document.id);
                           setDraggedDocumentId(document.id);
                           setDraggedFolderId(undefined);
                         }}
                         onDragEnd={clearDragState}
-                      >
-                        <GripVertical aria-hidden="true" />
-                      </button>
-                    ) : null}
-                    <a className="document-row-link" href={`/reader/${document.id}`}>
-                      <div
-                        className="document-cover"
-                        style={document.coverDataUrl ? { backgroundImage: `url(${document.coverDataUrl})` } : undefined}
                       >
                         {document.coverDataUrl ? null : <FileText aria-hidden="true" />}
                       </div>
@@ -606,6 +598,7 @@ export function LibraryScreen({
                         {onMoveDocument || onDelete ? (
                           <button
                             type="button"
+                            data-library-menu-control
                             aria-label={`更多操作：${document.title}`}
                             aria-expanded={documentActionsId === document.id}
                             title="更多操作"
@@ -618,24 +611,25 @@ export function LibraryScreen({
                           </button>
                         ) : null}
                         {documentActionsId === document.id ? (
-                          <div className="document-folder-menu" role="menu">
+                          <div className="document-folder-menu" role="menu" data-library-menu-control>
                             {moveDocumentId === document.id ? (
                               <>
                                 <button type="button" role="menuitem" onClick={() => setMoveDocumentId(undefined)}>
                                   <ChevronLeft aria-hidden="true" />返回
                                 </button>
-                                <button
-                                  className={!document.folderId ? "is-current" : ""}
-                                  type="button"
-                                  role="menuitem"
-                                  onClick={() => {
-                                    setMoveDocumentId(undefined);
-                                    setDocumentActionsId(undefined);
-                                    void onMoveDocument?.(document.id, undefined);
-                                  }}
-                                >
-                                  未分类
-                                </button>
+                                {document.folderId ? (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setMoveDocumentId(undefined);
+                                      setDocumentActionsId(undefined);
+                                      void onMoveDocument?.(document.id, undefined);
+                                    }}
+                                  >
+                                    <FolderInput aria-hidden="true" />移出当前文件夹
+                                  </button>
+                                ) : null}
                                 {sortedFolders.map((folder) => (
                                   <button
                                     className={document.folderId === folder.id ? "is-current" : ""}
@@ -654,7 +648,7 @@ export function LibraryScreen({
                               </>
                             ) : (
                               <>
-                                {onMoveDocument ? (
+                                {onMoveDocument && (sortedFolders.length > 0 || document.folderId) ? (
                                   <button type="button" role="menuitem" onClick={() => setMoveDocumentId(document.id)}>
                                     <FolderInput aria-hidden="true" />移动到文件夹
                                   </button>
@@ -809,7 +803,7 @@ export function LibraryScreen({
             <h2 id="delete-folder-title">删除文件夹</h2>
             <p>确定删除“{deleteFolderCandidate.name}”吗？</p>
             <div className="delete-dialog-keep">
-              {deleteFolderCandidate.documentCount} 份文献将移至未分类，文献和阅读记录不会删除。
+              {deleteFolderCandidate.documentCount} 份文献仍会保留在资料库，阅读记录不会删除。
             </div>
             {deleteFolderError ? <div className="folder-dialog-error" role="alert">{deleteFolderError}</div> : null}
             <footer>
@@ -826,7 +820,7 @@ export function LibraryScreen({
                   setDeletingFolder(true);
                   try {
                     await onDeleteFolder(deleteFolderCandidate.id);
-                    if (activeFolder === deleteFolderCandidate.id) setActiveFolder("unfiled");
+                    if (activeFolder === deleteFolderCandidate.id) setActiveFolder("all");
                     setDeleteFolderCandidate(undefined);
                     setDeleteFolderError("");
                   } catch (error) {

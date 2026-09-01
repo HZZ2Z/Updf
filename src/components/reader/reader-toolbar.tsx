@@ -28,6 +28,7 @@ interface ReaderToolbarProps {
   leftPanelOpen: boolean;
   inspectorOpen: boolean;
   focusMode: boolean;
+  settingsHref?: string;
   onModeChange: (mode: ReaderMode) => void;
   onPageChange: (page: number) => void;
   onZoomChange: (zoom: number) => void;
@@ -51,6 +52,7 @@ export function ReaderToolbar({
   leftPanelOpen,
   inspectorOpen,
   focusMode,
+  settingsHref = "/settings",
   onModeChange,
   onPageChange,
   onZoomChange,
@@ -170,7 +172,7 @@ export function ReaderToolbar({
           {focusMode ? <Minimize2 /> : <Maximize2 />}
         </button>
         <button className="toolbar-icon-button toolbar-export-button" type="button" aria-label="导出阅读记录" onClick={onExport}><Download /></button>
-        <a className="toolbar-icon-button" href="/settings" aria-label="设置"><Settings /></a>
+        <a className="toolbar-icon-button" href={settingsHref} aria-label="设置"><Settings /></a>
       </div>
     </header>
   );

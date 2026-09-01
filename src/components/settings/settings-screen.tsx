@@ -19,6 +19,7 @@ import type { TranslationUsageSummary } from "@/lib/translation-usage";
 import type { DesktopIntegrationStatus, DesktopUpdateState } from "@/types/desktop";
 
 interface SettingsScreenProps {
+  backHref?: string;
   hasApiKey: boolean;
   hasGoogleApiKey: boolean;
   translationProvider: TranslationProvider;
@@ -46,6 +47,7 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({
+  backHref = "/",
   hasApiKey,
   hasGoogleApiKey,
   translationProvider,
@@ -92,15 +94,15 @@ export function SettingsScreen({
   return (
     <div className="settings-shell">
       <header className="subpage-topbar">
-        <a className="toolbar-icon-button" href="/" aria-label="返回资料库"><ArrowLeft /></a>
+        <a className="toolbar-icon-button" href={backHref} aria-label={backHref === "/" ? "返回资料库" : "返回阅读"}><ArrowLeft /></a>
         <a className="brand" href="/"><span className="brand-mark">墨</span><span>墨读</span></a>
       </header>
       <main className="settings-main">
-        <div className="settings-heading"><h1>设置</h1><p>密钥、翻译偏好和本地阅读数据都由你掌控。</p></div>
+        <div className="settings-heading"><h1>设置</h1></div>
         {message ? <div className="library-message" role="status">{message}</div> : null}
 
         <section className="settings-section">
-          <div className="settings-section-heading"><Languages /><div><h2>翻译偏好</h2><p>阅读时直接使用这里选择的服务，不需要每次重复切换。</p></div></div>
+          <div className="settings-section-heading"><Languages /><div><h2>翻译偏好</h2></div></div>
           <div className="translation-preference-grid">
             <label className="settings-select"><span>默认翻译服务</span><select value={translationProvider} onChange={(event) => onTranslationProviderChange(event.target.value as TranslationProvider)}>
               <option value="deepseek">DeepSeek</option>
@@ -132,7 +134,6 @@ export function SettingsScreen({
               <FileCheck2 />
               <div>
                 <h2>PDF 默认应用</h2>
-                <p>从文件管理器双击 PDF 时直接使用墨读打开。</p>
               </div>
             </div>
             <div className="desktop-integration-row">
@@ -218,20 +219,20 @@ export function SettingsScreen({
         ) : null}
 
         <section className="settings-section">
-          <div className="settings-section-heading"><KeyRound /><div><h2>翻译 API 密钥</h2><p>两种密钥分别保存在当前标签页会话中，关闭浏览器后自动清除。</p></div></div>
+          <div className="settings-section-heading"><KeyRound /><div><h2>翻译 API 密钥</h2><p>桌面端使用系统安全存储加密保存，不会写入阅读记录或导出文件。</p></div></div>
           <div className="translation-key-grid">
             <div className={`translation-key-card${translationProvider === "deepseek" ? " is-active" : ""}`}>
-              <div className="translation-key-heading"><strong>DeepSeek</strong><span>{hasApiKey ? "当前会话已连接" : "尚未连接"}</span></div>
+              <div className="translation-key-heading"><strong>DeepSeek</strong><span>{hasApiKey ? "本机已保存" : "尚未连接"}</span></div>
               <form className="api-key-form" onSubmit={saveKey}>
                 <label><span>DeepSeek API Key</span><input type="password" value={apiKey} placeholder={hasApiKey ? "输入新密钥可替换" : "sk-…"} onChange={(event) => setApiKey(event.target.value)} /></label>
                 <div>
-                  <button className="primary-button" type="submit" disabled={!apiKey.trim()}>保存到当前会话</button>
+                  <button className="primary-button" type="submit" disabled={!apiKey.trim()}>保存到本机</button>
                   {hasApiKey ? <button className="secondary-button" type="button" onClick={onClearApiKey}>清除密钥</button> : null}
                 </div>
               </form>
             </div>
             <div className={`translation-key-card${translationProvider === "google" ? " is-active" : ""}`}>
-              <div className="translation-key-heading"><strong>Google Cloud Translation</strong><span>{hasGoogleApiKey ? "当前会话已连接" : "尚未连接"}</span></div>
+              <div className="translation-key-heading"><strong>Google Cloud Translation</strong><span>{hasGoogleApiKey ? "本机已保存" : "尚未连接"}</span></div>
               <form className="api-key-form" onSubmit={saveGoogleKey}>
                 <label><span>Google Cloud Translation API Key</span><input type="password" value={googleApiKey} placeholder={hasGoogleApiKey ? "输入新密钥可替换" : "AIza…"} onChange={(event) => setGoogleApiKey(event.target.value)} /></label>
                 <div>

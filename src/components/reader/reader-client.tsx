@@ -22,6 +22,7 @@ import {
   buildTranslationCacheKey,
   captureContinuousZoomAnchor,
   getContinuousZoomScrollTop,
+  isVocabularyCandidate,
   scheduleContinuousPagePosition,
   sameTextAnchorLocation,
   shouldAcceptViewerPageChange,
@@ -32,11 +33,20 @@ import {
   translationRequestDeduper,
 } from "@/lib/translation-runtime";
 import {
+  loadTranslationApiKey,
+  saveTranslationApiKey,
+} from "@/lib/translation-key-storage";
+import {
   recordLocalTranslationCacheHit,
   recordRemoteTranslationUsage,
   type TranslationApiUsage,
 } from "@/lib/translation-usage";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import {
+  getReaderStateStorageKey,
+  parseReaderResumeState,
+  saveReaderResumeState,
+} from "@/lib/reader-session";
 import type {
   AnnotationRecord,
   DocumentRecord,
@@ -190,13 +200,17 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
       setDocumentRecord(record);
       pageSizesRef.current = record.pageSizes ?? {};
       setPageSizes(pageSizesRef.current);
+      const resumeState = parseReaderResumeState(
+        window.localStorage.getItem(getReaderStateStorageKey(documentId)),
+        record.pageCount,
+      );
       setModePages({
-        continuous: record.continuousPage ?? record.currentPage,
-        book: record.bookPage ?? record.currentPage,
+        continuous: resumeState?.continuousPage ?? record.continuousPage ?? record.currentPage,
+        book: resumeState?.bookPage ?? record.bookPage ?? record.currentPage,
       });
-      setContinuousZoom(record.continuousZoom);
-      setBookZoom(record.bookZoom);
-      const savedMode = window.localStorage.getItem("modu-reader-mode");
+      setContinuousZoom(resumeState?.continuousZoom ?? record.continuousZoom);
+      setBookZoom(resumeState?.bookZoom ?? record.bookZoom);
+      const savedMode = resumeState?.mode ?? window.localStorage.getItem("modu-reader-mode");
       if (savedMode === "book" || savedMode === "continuous") {
         activeModeRef.current = savedMode;
         setMode(savedMode);
@@ -278,6 +292,17 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
     }, 280);
     return () => window.clearTimeout(timer);
   }, [bookZoom, continuousZoom, documentId, documentRecord, modePages.book, modePages.continuous, page]);
+
+  useEffect(() => {
+    if (!documentRecord) return;
+    saveReaderResumeState(documentId, {
+      mode,
+      continuousPage: modePages.continuous,
+      bookPage: modePages.book,
+      continuousZoom,
+      bookZoom,
+    });
+  }, [bookZoom, continuousZoom, documentId, documentRecord, mode, modePages.book, modePages.continuous]);
 
   useEffect(() => {
     if (!pdf) return;
@@ -478,26 +503,83 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
     return mark;
   }, [documentId, focusTranslation, translationMarks]);
 
+  const ensureVocabularyEntry = useCallback(async (
+    payload: TranslationPayload,
+    mark: TranslationMark,
+    announce: boolean,
+  ) => {
+    const database = getReaderDatabase();
+    const existing = await database.vocabulary
+      .where("translationId")
+      .equals(payload.id)
+      .and((entry) => entry.documentId === documentId)
+      .first();
+    const now = new Date().toISOString();
+    if (existing) {
+      if (
+        existing.originalText !== payload.originalText
+        || existing.translatedText !== payload.translatedText
+      ) {
+        const updated: VocabularyEntry = {
+          ...existing,
+          originalText: payload.originalText,
+          translatedText: payload.translatedText,
+          updatedAt: now,
+        };
+        await database.vocabulary.put(updated);
+        setVocabulary((current) => current.map((entry) => entry.id === updated.id ? updated : entry));
+      }
+      if (announce) setStatus("该单词已在词汇本中");
+      return false;
+    }
+    const entry: VocabularyEntry = {
+      id: crypto.randomUUID(),
+      documentId,
+      translationId: payload.id,
+      originalText: payload.originalText,
+      translatedText: payload.translatedText,
+      context: `${mark.anchor.prefix}${mark.anchor.exact}${mark.anchor.suffix}`.trim(),
+      sourceTitle: documentRecord?.title,
+      page: mark.anchor.page,
+      mastered: false,
+      favorite: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await database.vocabulary.put(entry);
+    setVocabulary((current) => current.some((item) => item.id === entry.id)
+      ? current
+      : [...current, entry]);
+    if (announce) setStatus("已加入词汇本");
+    return true;
+  }, [documentId, documentRecord?.title]);
+
   const translateSelection = useCallback(async (
     selected: TextSelectionSnapshot,
     providedApiKey?: string,
     bypassCache = false,
     forcedProvider?: TranslationService,
   ) => {
-    const deepSeekSessionKey = window.sessionStorage.getItem("modu-deepseek-key") || "";
-    const googleSessionKey = window.sessionStorage.getItem("modu-google-translate-key") || "";
+    let deepSeekKey = "";
+    let googleKey = "";
+    try {
+      [deepSeekKey, googleKey] = await Promise.all([
+        loadTranslationApiKey("deepseek"),
+        loadTranslationApiKey("google"),
+      ]);
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : "无法读取 API Key");
+      return;
+    }
     const provider = forcedProvider ?? resolveTranslationProvider(
       translationProvider,
       selected.text,
       {
-        deepseek: Boolean(deepSeekSessionKey),
-        google: Boolean(googleSessionKey),
+        deepseek: Boolean(deepSeekKey),
+        google: Boolean(googleKey),
       },
     );
-    const sessionKey = provider === "google"
-      ? "modu-google-translate-key"
-      : "modu-deepseek-key";
-    const apiKey = providedApiKey || window.sessionStorage.getItem(sessionKey) || "";
+    const apiKey = providedApiKey || (provider === "google" ? googleKey : deepSeekKey);
     if (!apiKey) {
       pendingTranslationRef.current = { selection: selected, bypassCache, provider };
       setApiKeyProvider(provider);
@@ -519,8 +601,13 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
         if (cached) {
           recordLocalTranslationCacheHit();
           if (!translations.some((item) => item.id === cached.id)) setTranslations((current) => [...current, cached]);
-          await createTranslationMark(cached, selected);
-          setStatus("已复用本地翻译缓存，未调用翻译 API");
+          const mark = await createTranslationMark(cached, selected);
+          const added = isVocabularyCandidate(cached.originalText)
+            ? await ensureVocabularyEntry(cached, mark, false)
+            : false;
+          setStatus(added
+            ? "已复用本地翻译缓存，并自动加入词汇本"
+            : "已复用本地翻译缓存，未调用翻译 API");
           setSelection(undefined);
           window.getSelection()?.removeAllRanges();
           return;
@@ -559,16 +646,21 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
       };
       await database.translations.put(payload);
       setTranslations((current) => [...current.filter((item) => item.id !== payload.id), payload]);
-      await createTranslationMark(payload, selected);
+      const mark = await createTranslationMark(payload, selected);
+      const added = isVocabularyCandidate(payload.originalText)
+        ? await ensureVocabularyEntry(payload, mark, false)
+        : false;
       setSelection(undefined);
       window.getSelection()?.removeAllRanges();
-      setStatus("翻译已保存并以蓝色标记");
+      setStatus(added
+        ? "翻译已保存并以蓝色标记，单词已自动加入词汇本"
+        : "翻译已保存并以蓝色标记");
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : "翻译失败");
     } finally {
       setTranslating(false);
     }
-  }, [createTranslationMark, targetLanguage, translationProvider, translations]);
+  }, [createTranslationMark, ensureVocabularyEntry, targetLanguage, translationProvider, translations]);
 
   const saveNote = useCallback(async (values: { title: string; body: string; url: string }) => {
     if (!noteDialog) return;
@@ -606,29 +698,11 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
   }, [selectedAnnotationId]);
 
   const addVocabulary = useCallback(async (translationId: string, markId: string) => {
-    if (vocabulary.some((item) => item.translationId === translationId)) return;
     const payload = translations.find((item) => item.id === translationId);
     const mark = translationMarks.find((item) => item.id === markId);
     if (!payload || !mark) return;
-    const now = new Date().toISOString();
-    const entry: VocabularyEntry = {
-      id: crypto.randomUUID(),
-      documentId,
-      translationId,
-      originalText: payload.originalText,
-      translatedText: payload.translatedText,
-      context: `${mark.anchor.prefix}${mark.anchor.exact}${mark.anchor.suffix}`.trim(),
-      sourceTitle: documentRecord?.title,
-      page: mark.anchor.page,
-      mastered: false,
-      favorite: false,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await getReaderDatabase().vocabulary.put(entry);
-    setVocabulary((current) => [...current, entry]);
-    setStatus("已加入词汇本");
-  }, [documentId, documentRecord?.title, translationMarks, translations, vocabulary]);
+    await ensureVocabularyEntry(payload, mark, true);
+  }, [ensureVocabularyEntry, translationMarks, translations]);
 
   const exportRecords = useCallback(() => {
     if (!documentRecord) return;
@@ -683,6 +757,7 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
         leftPanelOpen={leftPanelOpen}
         inspectorOpen={inspectorOpen}
         focusMode={focusMode}
+        settingsHref={`/settings?returnTo=${encodeURIComponent(`/reader/${documentId}`)}`}
         onModeChange={(nextMode) => {
           activeModeRef.current = nextMode;
           setMode(nextMode);
@@ -711,6 +786,7 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
       <div className={`reader-workspace ${leftPanelOpen ? "" : "is-left-panel-closed"} ${inspectorOpen ? "" : "is-inspector-closed"}`}>
         {leftPanelOpen ? (
           <ReaderLeftPanel
+            pdf={pdf}
             pageCount={documentRecord.pageCount}
             currentPage={page}
             onPageChange={navigateToPage}
@@ -812,22 +888,20 @@ export function ReaderClient({ documentId }: ReaderClientProps) {
           <section className="api-key-dialog" role="dialog" aria-modal="true" aria-labelledby="api-key-title">
             <KeyRound />
             <h2 id="api-key-title">连接 {apiKeyProvider === "google" ? "Google Cloud Translation" : "DeepSeek"}</h2>
-            <p>密钥只保存在当前浏览器会话中，不写入阅读记录或导出文件。</p>
+            <p>密钥保存在本机；桌面端使用系统安全存储加密，不写入阅读记录或导出文件。</p>
             <label><span>{apiKeyProvider === "google" ? "Google Cloud Translation API Key" : "DeepSeek API Key"}</span><input autoFocus type="password" value={apiKeyDraft} placeholder={apiKeyProvider === "google" ? "AIza…" : "sk-…"} onChange={(event) => setApiKeyDraft(event.target.value)} /></label>
             <div>
               <button className="secondary-button" type="button" onClick={() => setShowApiKey(false)}>取消</button>
               <button className="primary-button" type="button" disabled={!apiKeyDraft.trim()} onClick={() => {
                 const key = apiKeyDraft.trim();
-                window.sessionStorage.setItem(
-                  apiKeyProvider === "google"
-                    ? "modu-google-translate-key"
-                    : "modu-deepseek-key",
-                  key,
-                );
-                setShowApiKey(false);
-                const pending = pendingTranslationRef.current;
-                pendingTranslationRef.current = undefined;
-                if (pending) void translateSelection(pending.selection, key, pending.bypassCache, pending.provider);
+                void saveTranslationApiKey(apiKeyProvider, key).then(() => {
+                  setShowApiKey(false);
+                  const pending = pendingTranslationRef.current;
+                  pendingTranslationRef.current = undefined;
+                  if (pending) void translateSelection(pending.selection, key, pending.bypassCache, pending.provider);
+                }).catch((caught) => {
+                  setStatus(caught instanceof Error ? caught.message : "API Key 保存失败");
+                });
               }}>保存并翻译</button>
             </div>
           </section>

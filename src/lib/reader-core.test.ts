@@ -9,6 +9,7 @@ import {
   getContinuousPageScale,
   getContinuousZoomScrollTop,
   getBookSpread,
+  isVocabularyCandidate,
   mergeByUpdatedAt,
   normalizeTranslationText,
   scheduleContinuousPagePosition,
@@ -47,6 +48,16 @@ describe("translation cache", () => {
     await expect(
       buildTranslationCacheKey("interpretability", "zh-CN", "deepseek"),
     ).resolves.toBe("0e640de9062d9399a54708b1b89be0425f4c650f37e971faff68d72cb352b764");
+  });
+});
+
+describe("automatic vocabulary capture", () => {
+  it("adds single technical words but leaves sentences and paragraphs out", () => {
+    expect(isVocabularyCandidate("interpretability")).toBe(true);
+    expect(isVocabularyCandidate("end-to-end")).toBe(true);
+    expect(isVocabularyCandidate("ROS2")).toBe(true);
+    expect(isVocabularyCandidate("robot motion planning")).toBe(false);
+    expect(isVocabularyCandidate("How does this controller work?")).toBe(false);
   });
 });
 

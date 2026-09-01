@@ -5,7 +5,8 @@ import { DesktopPdfOpenCoordinator } from "@/components/desktop/desktop-pdf-open
 import { importPdfIntoLibrary } from "@/lib/pdf-library-import";
 
 const push = vi.fn();
-const router = { push };
+const replace = vi.fn();
+const router = { push, replace };
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
@@ -20,7 +21,10 @@ const importPdfMock = vi.mocked(importPdfIntoLibrary);
 describe("DesktopPdfOpenCoordinator", () => {
   beforeEach(() => {
     push.mockReset();
+    replace.mockReset();
     importPdfMock.mockReset();
+    window.localStorage.clear();
+    window.history.replaceState({}, "", "/");
   });
 
   afterEach(() => {
@@ -62,6 +66,22 @@ describe("DesktopPdfOpenCoordinator", () => {
 
     expect(push).not.toHaveBeenCalled();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("returns to the last reader after the launch queue is empty", async () => {
+    window.localStorage.setItem("modu-last-reader-path", "/reader/robotics-sha");
+    window.moduDesktop = {
+      isDesktop: true,
+      consumeLaunchPdf: vi.fn().mockResolvedValue(null),
+      onOpenPdfAvailable: () => () => {},
+      getPdfDefaultAppStatus: vi.fn(),
+      setAsPdfDefaultApp: vi.fn(),
+    };
+
+    render(<DesktopPdfOpenCoordinator />);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/reader/robotics-sha"));
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("opens a PDF announced after startup and unsubscribes on unmount", async () => {

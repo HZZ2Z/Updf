@@ -221,7 +221,7 @@ describe("LibraryScreen", () => {
     expect(onDelete).toHaveBeenCalledWith("doc-delete");
   });
 
-  it("filters by course folder and moves a document to unfiled", async () => {
+  it("filters by course folder without showing an unfiled category and can move a document out", async () => {
     const onMoveDocument = vi.fn();
     render(
       <LibraryScreen
@@ -236,10 +236,11 @@ describe("LibraryScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Robotics 2" }));
     expect(screen.getByText("Kinematics")).toBeInTheDocument();
     expect(screen.queryByText("Linear Algebra")).not.toBeInTheDocument();
+    expect(screen.queryByText("未分类")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "更多操作：Kinematics" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "移动到文件夹" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "未分类" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "移出当前文件夹" }));
     expect(onMoveDocument).toHaveBeenCalledWith("kinematics", undefined);
   });
 
@@ -257,7 +258,12 @@ describe("LibraryScreen", () => {
       />,
     );
 
-    fireEvent.dragStart(screen.getByRole("button", { name: "拖动排序：Linear Algebra" }), {
+    expect(screen.queryByText("拖动调整顺序")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "拖动排序：Linear Algebra" })).not.toBeInTheDocument();
+    const draggableCover = screen.getByLabelText("拖动排序：Linear Algebra");
+    expect(draggableCover).toHaveClass("document-cover");
+
+    fireEvent.dragStart(draggableCover, {
       dataTransfer: dragData(),
     });
     fireEvent.dragOver(screen.getByLabelText("文献：Kinematics"));
@@ -268,7 +274,7 @@ describe("LibraryScreen", () => {
       "robot-dynamics",
     ]);
 
-    fireEvent.dragStart(screen.getByRole("button", { name: "拖动排序：Linear Algebra" }), {
+    fireEvent.dragStart(draggableCover, {
       dataTransfer: dragData(),
     });
     fireEvent.dragOver(screen.getByRole("button", { name: "Robotics 2" }));
@@ -322,6 +328,24 @@ describe("LibraryScreen", () => {
     expect(screen.getByRole("menuitem", { name: "删除文献" })).toBeInTheDocument();
   });
 
+  it("closes an expanded more menu when the user clicks elsewhere", async () => {
+    render(
+      <LibraryScreen
+        documents={[folderDocuments[0]]}
+        folders={[roboticsFolder]}
+        pendingBundles={[]}
+        onImport={vi.fn()}
+        onMoveDocument={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "更多操作：Kinematics" }));
+    expect(screen.getByRole("menuitem", { name: "删除文献" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("heading", { name: "文献资料库" }));
+    expect(screen.queryByRole("menuitem", { name: "删除文献" })).not.toBeInTheDocument();
+  });
+
   it("creates and renames a course folder", async () => {
     const onCreateFolder = vi.fn();
     const onRenameFolder = vi.fn();
@@ -365,8 +389,8 @@ describe("LibraryScreen", () => {
     await userEvent.click(screen.getByRole("menuitem", { name: "删除文件夹" }));
 
     const dialog = screen.getByRole("dialog", { name: "删除文件夹" });
-    expect(dialog).toHaveTextContent("2 份文献将移至未分类");
-    expect(dialog).toHaveTextContent("文献和阅读记录不会删除");
+    expect(dialog).toHaveTextContent("2 份文献仍会保留在资料库");
+    expect(dialog).toHaveTextContent("阅读记录不会删除");
 
     await userEvent.click(screen.getByRole("button", { name: "确认删除文件夹" }));
     expect(onDeleteFolder).toHaveBeenCalledWith("robotics");

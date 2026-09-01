@@ -306,7 +306,7 @@ export function LibraryClient() {
       if (!movedStoredDocument && !updateEphemeralDocument(documentId, { folderId })) {
         throw new Error("找不到这份文献");
       }
-      setMessage(folderId ? "文献已移入文件夹。" : "文献已移至未分类。");
+      setMessage(folderId ? "文献已移入文件夹。" : "文献已移出文件夹。");
       await refresh();
     } catch (error) {
       setMessage(errorMessage(error));
@@ -324,7 +324,7 @@ export function LibraryClient() {
       const documentsUnfiled = result.documentsUnfiled + ephemeralDocumentsUnfiled;
       setMessage(
         documentsUnfiled > 0
-          ? `文件夹已删除，${documentsUnfiled} 份文献已移至未分类。`
+          ? `文件夹已删除，${documentsUnfiled} 份文献仍保留在资料库。`
           : "文件夹已删除。",
       );
       await refresh();

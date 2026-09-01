@@ -112,10 +112,11 @@ describe("Electron desktop runtime", () => {
     queue.enqueue([pdfPath]);
     const handlers = new Map<
       string,
-      (event: { senderFrame: { url: string } }) => Promise<unknown>
+      (event: { senderFrame: { url: string } }, ...args: unknown[]) => Promise<unknown>
     >();
     const getUpdateState = vi.fn(() => ({ status: "idle", currentVersion: "1.1.0" }));
     const checkForUpdates = vi.fn(() => ({ status: "checking", currentVersion: "1.1.0" }));
+    const getTranslationApiKey = vi.fn(() => "sk-restored");
     registerDesktopIpc({
       ipcMain: {
         handle: (channel, handler) => handlers.set(channel, handler),
@@ -128,6 +129,9 @@ describe("Electron desktop runtime", () => {
       checkForUpdates,
       downloadUpdate: vi.fn(),
       installUpdate: vi.fn(),
+      getTranslationApiKey,
+      saveTranslationApiKey: vi.fn(),
+      clearTranslationApiKey: vi.fn(),
     });
     const consume = handlers.get("desktop:consume-launch-pdf");
 
@@ -143,8 +147,15 @@ describe("Electron desktop runtime", () => {
     await expect(handlers.get("desktop:check-for-updates")?.({
       senderFrame: { url: "https://attacker.test/" },
     })).rejects.toThrow("拒绝未授权的桌面请求");
+    await expect(handlers.get("desktop:get-translation-api-key")?.({
+      senderFrame: { url: "http://127.0.0.1:32147/settings" },
+    }, "deepseek")).resolves.toBe("sk-restored");
+    await expect(handlers.get("desktop:get-translation-api-key")?.({
+      senderFrame: { url: "https://attacker.test/" },
+    }, "deepseek")).rejects.toThrow("拒绝未授权的桌面请求");
     expect(getUpdateState).toHaveBeenCalledOnce();
     expect(checkForUpdates).not.toHaveBeenCalled();
+    expect(getTranslationApiKey).toHaveBeenCalledWith("deepseek");
   });
 
   it("writes a user desktop entry before requesting the PDF default", async () => {
@@ -175,5 +186,30 @@ describe("Electron desktop runtime", () => {
       "xdg-mime",
       ["default", "com.hzz2z.modureader.desktop", "application/pdf"],
     ]);
+  });
+
+  it("reports the new PDF default immediately when xdg-mime still returns its stale cache", async () => {
+    const dataHome = await mkdtemp(join(tmpdir(), "modu-xdg-stale-"));
+    roots.push(dataHome);
+    const execFile = vi.fn(async (command: string, args: string[]) => {
+      if (command === "xdg-mime" && args[0] === "query") {
+        return { stdout: "org.gnome.Evince.desktop\n" };
+      }
+      return { stdout: "" };
+    });
+
+    const status = await setAsPdfDefaultApp({
+      dataHome,
+      executablePath: "/apps/Modu.AppImage",
+      iconSourcePath: "/assets/icon.svg",
+      execFile,
+      copyFile: vi.fn(),
+    });
+
+    expect(status).toMatchObject({
+      available: true,
+      isDefault: true,
+      defaultApplication: "com.hzz2z.modureader.desktop",
+    });
   });
 });

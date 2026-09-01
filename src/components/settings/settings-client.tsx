@@ -14,6 +14,12 @@ import {
   parsePortableArchive,
 } from "@/lib/portable-data";
 import { readTranslationUsage, type TranslationUsageSummary } from "@/lib/translation-usage";
+import {
+  clearTranslationApiKey,
+  loadTranslationApiKey,
+  saveTranslationApiKey,
+} from "@/lib/translation-key-storage";
+import { getSettingsReturnPath } from "@/lib/reader-session";
 import type { TranslationProvider } from "@/lib/types";
 import type { DesktopIntegrationStatus, DesktopUpdateState } from "@/types/desktop";
 
@@ -29,6 +35,7 @@ export function SettingsClient() {
   const [desktopIntegration, setDesktopIntegration] = useState<DesktopIntegrationStatus>();
   const [desktopIntegrationBusy, setDesktopIntegrationBusy] = useState(false);
   const [desktopUpdate, setDesktopUpdate] = useState<DesktopUpdateState>();
+  const [backHref, setBackHref] = useState("/");
 
   const refreshCounts = useCallback(async () => {
     const database = getReaderDatabase();
@@ -43,13 +50,27 @@ export function SettingsClient() {
   }, []);
 
   useEffect(() => {
-    setHasApiKey(Boolean(window.sessionStorage.getItem("modu-deepseek-key")));
-    setHasGoogleApiKey(Boolean(window.sessionStorage.getItem("modu-google-translate-key")));
+    let active = true;
+    const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+    setBackHref(getSettingsReturnPath(returnTo));
     const savedProvider = window.localStorage.getItem("modu-translation-provider");
     setTranslationProvider(savedProvider === "google" || savedProvider === "smart" ? savedProvider : "deepseek");
     setTargetLanguage(window.localStorage.getItem("modu-target-language") || "zh-CN");
     setTranslationUsage(readTranslationUsage());
+    void Promise.all([
+      loadTranslationApiKey("deepseek"),
+      loadTranslationApiKey("google"),
+    ]).then(([deepSeekKey, googleKey]) => {
+      if (!active) return;
+      setHasApiKey(Boolean(deepSeekKey));
+      setHasGoogleApiKey(Boolean(googleKey));
+    }).catch((error) => {
+      if (active) setMessage(error instanceof Error ? error.message : "无法读取 API Key");
+    });
     void refreshCounts();
+    return () => {
+      active = false;
+    };
   }, [refreshCounts]);
 
   useEffect(() => {
@@ -140,6 +161,7 @@ export function SettingsClient() {
 
   return (
     <SettingsScreen
+      backHref={backHref}
       hasApiKey={hasApiKey}
       hasGoogleApiKey={hasGoogleApiKey}
       translationProvider={translationProvider}
@@ -152,24 +174,36 @@ export function SettingsClient() {
       desktopIntegrationBusy={desktopIntegrationBusy}
       desktopUpdate={desktopUpdate}
       onSaveApiKey={(key) => {
-        window.sessionStorage.setItem("modu-deepseek-key", key);
-        setHasApiKey(true);
-        setMessage("DeepSeek API Key 已保存到当前会话。");
+        void saveTranslationApiKey("deepseek", key).then(() => {
+          setHasApiKey(true);
+          setMessage("DeepSeek API Key 已安全保存到本机。");
+        }).catch((error) => {
+          setMessage(error instanceof Error ? error.message : "DeepSeek API Key 保存失败");
+        });
       }}
       onClearApiKey={() => {
-        window.sessionStorage.removeItem("modu-deepseek-key");
-        setHasApiKey(false);
-        setMessage("当前会话中的 API Key 已清除。");
+        void clearTranslationApiKey("deepseek").then(() => {
+          setHasApiKey(false);
+          setMessage("DeepSeek API Key 已从本机清除。");
+        }).catch((error) => {
+          setMessage(error instanceof Error ? error.message : "DeepSeek API Key 清除失败");
+        });
       }}
       onSaveGoogleApiKey={(key) => {
-        window.sessionStorage.setItem("modu-google-translate-key", key);
-        setHasGoogleApiKey(true);
-        setMessage("Google Cloud Translation API Key 已保存到当前会话。");
+        void saveTranslationApiKey("google", key).then(() => {
+          setHasGoogleApiKey(true);
+          setMessage("Google Cloud Translation API Key 已安全保存到本机。");
+        }).catch((error) => {
+          setMessage(error instanceof Error ? error.message : "Google API Key 保存失败");
+        });
       }}
       onClearGoogleApiKey={() => {
-        window.sessionStorage.removeItem("modu-google-translate-key");
-        setHasGoogleApiKey(false);
-        setMessage("当前会话中的 Google API Key 已清除。");
+        void clearTranslationApiKey("google").then(() => {
+          setHasGoogleApiKey(false);
+          setMessage("Google API Key 已从本机清除。");
+        }).catch((error) => {
+          setMessage(error instanceof Error ? error.message : "Google API Key 清除失败");
+        });
       }}
       onTranslationProviderChange={(provider) => {
         window.localStorage.setItem("modu-translation-provider", provider);

@@ -81,6 +81,27 @@ describe("InspectorPanel", () => {
     expect(onRetranslate).toHaveBeenCalledWith(translation, mark);
   });
 
+  it("closes translation more actions when clicking elsewhere", async () => {
+    render(
+      <InspectorPanel
+        translations={[{ payload: translation, mark }]}
+        annotations={[]}
+        vocabularyTranslationIds={new Set()}
+        onAddVocabulary={vi.fn()}
+        onRetranslate={vi.fn()}
+        onDeleteAnnotation={vi.fn()}
+        onEditAnnotation={vi.fn()}
+        onAddPageNote={vi.fn()}
+        onExportMarkdown={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "更多翻译操作" }));
+    expect(screen.getByRole("menuitem", { name: "重新翻译" })).toBeInTheDocument();
+    await userEvent.click(screen.getByText("state of the art"));
+    expect(screen.queryByRole("menuitem", { name: "重新翻译" })).not.toBeInTheDocument();
+  });
+
   it("shows one focused translation and keeps a long history collapsed", async () => {
     const props = {
       translations: [

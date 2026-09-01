@@ -37,6 +37,9 @@ export interface ModuDesktopBridge {
   downloadUpdate?(): Promise<DesktopUpdateState>;
   installUpdate?(): Promise<boolean>;
   onUpdateState?(listener: (state: DesktopUpdateState) => void): () => void;
+  getTranslationApiKey?(provider: "deepseek" | "google"): Promise<string>;
+  saveTranslationApiKey?(provider: "deepseek" | "google", value: string): Promise<boolean>;
+  clearTranslationApiKey?(provider: "deepseek" | "google"): Promise<boolean>;
 }
 
 declare global {

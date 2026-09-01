@@ -26,7 +26,7 @@ export interface DesktopIpcOptions {
   ipcMain: {
     handle(
       channel: string,
-      handler: (event: any) => Promise<unknown>,
+      handler: (event: any, ...args: any[]) => Promise<unknown>,
     ): unknown;
   };
   queue: PdfOpenQueue;
@@ -37,6 +37,9 @@ export interface DesktopIpcOptions {
   checkForUpdates: () => Promise<unknown> | unknown;
   downloadUpdate: () => Promise<unknown> | unknown;
   installUpdate: () => Promise<unknown> | unknown;
+  getTranslationApiKey: (provider: string) => Promise<unknown> | unknown;
+  saveTranslationApiKey: (provider: string, value: string) => Promise<unknown> | unknown;
+  clearTranslationApiKey: (provider: string) => Promise<unknown> | unknown;
   onOpenError?: (path: string, error: unknown) => void;
 }
 

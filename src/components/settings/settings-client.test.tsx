@@ -1,11 +1,17 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsClient } from "@/components/settings/settings-client";
 import type { DesktopUpdateState } from "@/types/desktop";
 
 describe("SettingsClient desktop integration", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    window.history.replaceState({}, "", "/settings");
+  });
+
   afterEach(() => {
     delete window.moduDesktop;
   });
@@ -79,5 +85,27 @@ describe("SettingsClient desktop integration", () => {
       updateListener?.({ status: "ready", currentVersion: "1.1.0", availableVersion: "1.2.0" });
     });
     expect(await screen.findByRole("button", { name: "重启并更新" })).toBeInTheDocument();
+  });
+
+  it("restores and replaces a DeepSeek key through desktop secure storage", async () => {
+    const saveTranslationApiKey = vi.fn().mockResolvedValue(true);
+    window.moduDesktop = {
+      isDesktop: true,
+      consumeLaunchPdf: vi.fn(),
+      onOpenPdfAvailable: () => () => {},
+      getPdfDefaultAppStatus: vi.fn().mockResolvedValue({ available: true, isDefault: true }),
+      setAsPdfDefaultApp: vi.fn(),
+      getTranslationApiKey: vi.fn(async (provider) => provider === "deepseek" ? "sk-restored" : ""),
+      saveTranslationApiKey,
+      clearTranslationApiKey: vi.fn().mockResolvedValue(true),
+    };
+
+    render(<SettingsClient />);
+
+    expect(await screen.findByText("本机已保存")).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("DeepSeek API Key"), "sk-replacement");
+    await userEvent.click(screen.getByRole("button", { name: "保存到本机" }));
+    await waitFor(() => expect(saveTranslationApiKey).toHaveBeenCalledWith("deepseek", "sk-replacement"));
+    expect(await screen.findByText("DeepSeek API Key 已安全保存到本机。")).toBeInTheDocument();
   });
 });
